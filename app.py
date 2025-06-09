@@ -38,7 +38,7 @@ def webhook():
                         for message in messages:
                             from_number = message['from']
                             # Отправляем ответ
-                            send_text_message(phone_number_id, from_number, "Спасибо за ваше сообщение! Скоро мы с вами свяжемся.")
+                            send_text_message(phone_number_id, from_number, "Привет, долбоеб мой друг! Что хотел, долбоеб мой друг!")
 
         return jsonify({"status": "success"}), 200
 
