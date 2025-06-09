@@ -5,7 +5,7 @@ app = Flask(__name__)
 
 ACCESS_TOKEN = "EAAIdbZCyeyLoBOZCH7opFR4kX10PwkYeKnacye3diREsZBp7LZBkBIqR0neuJDpwfFftXtwYmktdwlw4bNLjkiXpRYOgDkZAPgZBivqzMIDwZC3tOeZBu71gdcgBnijHBhye07cRKZCQPxQKNNBYWTppCvMVZChYC0zHmSm0yx8Q71iZBuwrxMHykPi8PBb2JwsGkSfOjYhEIm5gxSsrMvpF1bD7INkG5w6xvEZD"
 VERIFY_TOKEN = "magicBotWebhook2025_9Jr4cT"
-API_URL = "https://graph.facebook.com/v15.0/714646878388417/messages"
+API_URL = "https://graph.facebook.com/v15.0/{phone_number_id}/messages"
 
 @app.route('/', methods=['GET'])
 def home():
@@ -37,6 +37,11 @@ def webhook():
                         phone_number_id = value['metadata']['phone_number_id']
                         for message in messages:
                             from_number = message['from']
+
+                            # Фикс восьмёрки для Meta-тестового ада
+                            if from_number.startswith('770'):
+                                from_number = '78' + from_number[2:]
+
                             # Отправляем ответ
                             send_text_message(phone_number_id, from_number, "Привет, долбоеб мой друг! Что хотел, долбоеб мой друг!")
 
