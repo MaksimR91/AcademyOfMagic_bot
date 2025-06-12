@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify
+from logger import logger
 import requests
 
 app = Flask(__name__)
@@ -19,14 +20,15 @@ def webhook():
         challenge = request.args.get('hub.challenge')
 
         if mode == 'subscribe' and token == VERIFY_TOKEN:
-            print("WEBHOOK VERIFIED")
+            logger.info("WEBHOOK VERIFIED")
             return challenge, 200
         else:
+	logger.error ("VERIFICATION FAILED")
             return "Verification failed", 403
 
     elif request.method == 'POST':
         data = request.json
-        print("Получено сообщение:", data)
+        logger.info("Получено сообщение:", data)
 
         if data.get('object') == 'whatsapp_business_account':
             for entry in data.get('entry', []):
@@ -72,8 +74,8 @@ def send_text_message(phone_number_id, to, text):
         }
     }
     response = requests.post(url, headers=headers, json=payload)
-    print(f"➡️ Отправка на {to}")
-    print("Ответ API WhatsApp:", response.status_code, response.text)
+    logger.info(f"➡️ Отправка на {to}")
+    logger.info("Ответ API WhatsApp:", response.status_code, response.text)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
