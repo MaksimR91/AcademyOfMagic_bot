@@ -23,12 +23,12 @@ def webhook():
             logger.info("WEBHOOK VERIFIED")
             return challenge, 200
         else:
-	logger.error ("VERIFICATION FAILED")
+            logger.error("VERIFICATION FAILED")
             return "Verification failed", 403
 
     elif request.method == 'POST':
         data = request.json
-        logger.info("Получено сообщение:", data)
+        logger.info("Получено сообщение: %s", data)
 
         if data.get('object') == 'whatsapp_business_account':
             for entry in data.get('entry', []):
@@ -39,7 +39,6 @@ def webhook():
                         phone_number_id = value['metadata']['phone_number_id']
                         for message in messages:
                             from_number = message['from']
-                            # Излечение от Meta-шизофрении: номер в формате 78XXXXXXXXX
                             normalized_number = normalize_for_meta(from_number)
 
                             send_text_message(
@@ -79,3 +78,4 @@ def send_text_message(phone_number_id, to, text):
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
+def test():print("hello")
