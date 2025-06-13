@@ -9,7 +9,7 @@ from datetime import datetime
 AWS_ACCESS_KEY_ID = os.getenv("YANDEX_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = os.getenv("YANDEX_SECRET_ACCESS_KEY")
 BUCKET_NAME = "academyofmagicbotlogs"
-REGION_NAME = "kz1"
+REGION_NAME = "ru-central1"
 
 # ==== ПАПКА ДЛЯ ЛОГОВ ====
 LOG_DIR = "logs"
@@ -21,7 +21,7 @@ s3_client = boto3.client(
     "s3",
     aws_access_key_id=AWS_ACCESS_KEY_ID,
     aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
-    endpoint_url="https://s3.kz1.cloud-object-storage.yandexcloud.net",
+    endpoint_url="https://storage.yandexcloud.net",
     region_name=REGION_NAME,
 )
 
