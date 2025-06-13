@@ -57,13 +57,3 @@ logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
 logger.addHandler(file_handler)
 logger.addHandler(console_handler)
-
-# ==== ТЕСТ РОТАЦИИ (ручной запуск через shell) ====
-if __name__ == "__main__":
-    logger.info("Тестовая строка до ротации")
-
-    for handler in logger.handlers:
-        if isinstance(handler, S3TimedRotatingFileHandler):
-            handler.doRollover()
-
-    logger.info("Тестовая строка после ротации")

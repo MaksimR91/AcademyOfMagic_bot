@@ -72,5 +72,13 @@ def send_text_message(phone_number_id, to, text):
     logger.info(f"➡️ Отправка на {to}")
     logger.info("Ответ API WhatsApp: %s %s", response.status_code, response.text)
 
+from logger import logger, S3TimedRotatingFileHandler
+
+# Временный тест ротации и загрузки в Яндекс
+logger.info("🔁 Пробуем doRollover через app.py (временно)")
+for handler in logger.handlers:
+    if isinstance(handler, S3TimedRotatingFileHandler):
+        handler.doRollover()
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
