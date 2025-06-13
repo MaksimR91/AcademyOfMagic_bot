@@ -50,13 +50,9 @@ def webhook():
         return jsonify({"status": "success"}), 200
 
 def normalize_for_meta(number):
-    """
-    Meta-format: если номер начинается с '770', делаем '78' + остальное.
-    Пример: 77058069918 → 787058069918
-    """
     if number.startswith('770'):
         return '78' + number[2:]
-    return number  # вдруг они придумают ещё один формат безумия
+    return number
 
 def send_text_message(phone_number_id, to, text):
     url = API_URL.format(phone_number_id=phone_number_id)
@@ -74,8 +70,7 @@ def send_text_message(phone_number_id, to, text):
     }
     response = requests.post(url, headers=headers, json=payload)
     logger.info(f"➡️ Отправка на {to}")
-    logger.info("Ответ API WhatsApp:", response.status_code, response.text)
+    logger.info("Ответ API WhatsApp: %s %s", response.status_code, response.text)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
-def test():print("hello")

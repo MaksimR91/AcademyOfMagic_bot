@@ -9,7 +9,7 @@ from datetime import datetime
 AWS_ACCESS_KEY_ID = os.getenv("YANDEX_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = os.getenv("YANDEX_SECRET_ACCESS_KEY")
 BUCKET_NAME = "academyofmagicbotlogs"
-REGION_NAME = "kz1"  # твой регион
+REGION_NAME = "kz1"
 
 # ==== ПАПКА ДЛЯ ЛОГОВ ====
 LOG_DIR = "logs"
@@ -29,12 +29,9 @@ s3_client = boto3.client(
 class S3TimedRotatingFileHandler(TimedRotatingFileHandler):
     def doRollover(self):
         super().doRollover()
-
-        # Имя последнего файла (вчерашнего)
-        timestamp = (datetime.now()).strftime("%Y-%m-%d")
+        timestamp = datetime.now().strftime("%Y-%m-%d")
         filename = os.path.join(LOG_DIR, f"log.{timestamp}.log")
 
-        # Загружаем в S3
         try:
             s3_key = f"logs/{os.path.basename(filename)}"
             s3_client.upload_file(filename, BUCKET_NAME, s3_key)
@@ -61,10 +58,10 @@ logger.setLevel(logging.DEBUG)
 logger.addHandler(file_handler)
 logger.addHandler(console_handler)
 
+# ==== ТЕСТ РОТАЦИИ (ручной запуск через shell) ====
 if __name__ == "__main__":
     logger.info("Тестовая строка до ротации")
 
-    # Ручная симуляция ротации
     for handler in logger.handlers:
         if isinstance(handler, S3TimedRotatingFileHandler):
             handler.doRollover()
