@@ -8,17 +8,10 @@ from datetime import datetime
 # ==== НАСТРОЙКИ S3 ====
 AWS_ACCESS_KEY_ID = os.getenv("YANDEX_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = os.getenv("YANDEX_SECRET_ACCESS_KEY")
-BUCKET_NAME = "academyofmagicbotlogs"
+BUCKET_NAME = "magicacademylogs"
 ENDPOINT_URL = "https://storage.yandexcloud.net"
-# REGION_NAME = "kz1"  # Закомментировано, т.к. может ломать подпись
-
-# ==== ОТЛАДОЧНАЯ ИНФОРМАЦИЯ ====
-print(f"[DEBUG] AWS_ACCESS_KEY_ID: {AWS_ACCESS_KEY_ID[:4]}...")  # первые символы
-print(f"[DEBUG] AWS_SECRET_ACCESS_KEY: {AWS_SECRET_ACCESS_KEY[:4]}...")  # первые символы
-print(f"[DEBUG] BUCKET_NAME: {BUCKET_NAME}")
-print(f"[DEBUG] ENDPOINT_URL: {ENDPOINT_URL}")
-# print(f"[DEBUG] REGION_NAME: {REGION_NAME}")
-
+REGION_NAME = "ru-central1" 
+ 
 # ==== ПАПКА ДЛЯ ЛОГОВ ====
 LOG_DIR = "logs"
 if not os.path.exists(LOG_DIR):
