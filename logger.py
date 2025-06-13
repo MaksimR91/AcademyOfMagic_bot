@@ -9,7 +9,15 @@ from datetime import datetime
 AWS_ACCESS_KEY_ID = os.getenv("YANDEX_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = os.getenv("YANDEX_SECRET_ACCESS_KEY")
 BUCKET_NAME = "academyofmagicbotlogs"
-REGION_NAME = "ru-central1"
+ENDPOINT_URL = "https://storage.yandexcloud.net"
+# REGION_NAME = "kz1"  # Закомментировано, т.к. может ломать подпись
+
+# ==== ОТЛАДОЧНАЯ ИНФОРМАЦИЯ ====
+print(f"[DEBUG] AWS_ACCESS_KEY_ID: {AWS_ACCESS_KEY_ID[:4]}...")  # первые символы
+print(f"[DEBUG] AWS_SECRET_ACCESS_KEY: {AWS_SECRET_ACCESS_KEY[:4]}...")  # первые символы
+print(f"[DEBUG] BUCKET_NAME: {BUCKET_NAME}")
+print(f"[DEBUG] ENDPOINT_URL: {ENDPOINT_URL}")
+# print(f"[DEBUG] REGION_NAME: {REGION_NAME}")
 
 # ==== ПАПКА ДЛЯ ЛОГОВ ====
 LOG_DIR = "logs"
@@ -21,8 +29,8 @@ s3_client = boto3.client(
     "s3",
     aws_access_key_id=AWS_ACCESS_KEY_ID,
     aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
-    endpoint_url="https://storage.yandexcloud.net",
-    region_name=REGION_NAME,
+    endpoint_url=ENDPOINT_URL,
+    # region_name=REGION_NAME  # убрано
 )
 
 # ==== КАСТОМНЫЙ ХЭНДЛЕР ====
@@ -31,13 +39,17 @@ class S3TimedRotatingFileHandler(TimedRotatingFileHandler):
         super().doRollover()
         timestamp = datetime.now().strftime("%Y-%m-%d")
         filename = os.path.join(LOG_DIR, f"log.{timestamp}.log")
+        s3_key = f"logs/{os.path.basename(filename)}"
 
+        print(f"[DEBUG] Uploading to S3 → File: {filename} → S3 Key: {s3_key}")
         try:
-            s3_key = f"logs/{os.path.basename(filename)}"
+            # Можно заменить на .put_object() ниже, если будет нужно
             s3_client.upload_file(filename, BUCKET_NAME, s3_key)
             print(f"[S3] Uploaded: {s3_key}")
         except ClientError as e:
-            print(f"[S3 ERROR] {e}")
+            print(f"[S3 ERROR] ClientError: {e}")
+        except Exception as e:
+            print(f"[S3 ERROR] Unexpected error: {e}")
 
 # ==== ФОРМАТ ЛОГОВ ====
 formatter = logging.Formatter("[%(asctime)s] [%(levelname)s] %(message)s", "%Y-%m-%d %H:%M:%S")
