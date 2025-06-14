@@ -34,20 +34,29 @@ def webhook():
             for entry in data.get('entry', []):
                 for change in entry.get('changes', []):
                     value = change.get('value', {})
-                    messages = value.get('messages', [])
-                    if messages:
-                        phone_number_id = value['metadata']['phone_number_id']
-                        for message in messages:
-                            from_number = message['from']
-                            normalized_number = normalize_for_meta(from_number)
 
-                            send_text_message(
-                                phone_number_id,
-                                normalized_number,
-                                "Привет, долбоеб мой друг! Что хотел, долбоеб мой друг!"
-                            )
+                    # Входящие сообщения
+                    for message in value.get('messages', []):
+                        handle_message(message, value['metadata']['phone_number_id'])
+
+                    # Статусы (доставлено, прочитано и т.п.)
+                    for status in value.get('statuses', []):
+                        handle_status(status)
 
         return jsonify({"status": "success"}), 200
+
+def handle_message(message, phone_number_id):
+    from_number = message['from']
+    normalized_number = normalize_for_meta(from_number)
+
+    send_text_message(
+        phone_number_id,
+        normalized_number,
+        "Привет, долбоеб мой друг! Что хотел, долбоеб мой друг!"
+    )
+
+def handle_status(status):
+    logger.info("📥 Получен статус: %s", status)
 
 def normalize_for_meta(number):
     if number.startswith('770'):
@@ -72,6 +81,13 @@ def send_text_message(phone_number_id, to, text):
     logger.info(f"➡️ Отправка на {to}")
     logger.info("Ответ API WhatsApp: %s %s", response.status_code, response.text)
 
+from logger import logger, S3TimedRotatingFileHandler
+
+# Временный тест ротации и загрузки в Яндекс
+logger.info("🔁 Пробуем doRollover через app.py (временно)")
+for handler in logger.handlers:
+    if isinstance(handler, S3TimedRotatingFileHandler):
+        handler.doRollover()
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)

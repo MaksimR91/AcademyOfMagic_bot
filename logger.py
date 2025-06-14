@@ -8,7 +8,7 @@ from datetime import datetime
 # ==== НАСТРОЙКИ S3 ====
 AWS_ACCESS_KEY_ID = os.getenv("YANDEX_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = os.getenv("YANDEX_SECRET_ACCESS_KEY")
-BUCKET_NAME = "magicacademylogs"
+BUCKET_NAME = "magicacademylogsars"
 ENDPOINT_URL = "https://storage.yandexcloud.net"
 REGION_NAME = "ru-central1" 
  
