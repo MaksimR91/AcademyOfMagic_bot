@@ -1,10 +1,15 @@
 from flask import Flask, request, jsonify
 from logger import logger
 import requests
+import openai
+import os
 
 app = Flask(__name__)
 
-ACCESS_TOKEN = "EAAIdbZCyeyLoBO2RnU2bUxOl7G9W4t6fiRSEjUZBUg9xE8DXcm9OZBFE8iXxDQfCW2BBB8PhO3FeLNC53re3EYA9AEYgrZCcJbMZAZBGQ5p3iaUfUkYnaikZBA3MoMItuSXERdLoCwTxjhqkDs4ACRusvpjv3JZCKPSqJX8rl5OWWmqbtmVTrO9zFf4dN2Qv1haw7IIRpwpZCC1HPUfRxWYbZC0XZBPnzrSJJpF0Bdb3aggpxMZCThyI3TMZD"
+ACCESS_TOKEN = os.getenv("WHATSAPP_ACCESS_TOKEN")
+VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
+openai.api_key = os.getenv("OPENAI_APIKEY")
+
 API_URL = "https://graph.facebook.com/v15.0/{phone_number_id}/messages"
 
 @app.route('/', methods=['GET'])
@@ -66,6 +71,13 @@ def handle_message(message, phone_number_id, bot_display_number, contacts):
 
     logger.info(f"📩 Новое сообщение от {normalized_number}: {text}")
 
+    try:
+        ai_response = get_ai_response(text)
+        send_text_message(phone_number_id, normalized_number, ai_response)
+        return
+    except Exception as e:
+        logger.warning(f"🤖 Ошибка генерации ответа ИИ: {e}")
+
     should_send_template = bool(name and category)
     template_sent = False
 
@@ -83,6 +95,18 @@ def handle_message(message, phone_number_id, bot_display_number, contacts):
             normalized_number,
             "Привет, долбоеб мой друг! Что хотел, долбоеб мой друг!"
         )
+
+def get_ai_response(prompt):
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",  # Можно заменить на gpt-4 при необходимости
+        messages=[
+            {"role": "system", "content": "Ты вежливый ассистент иллюзиониста Арсения. Помогай клиенту, не выдумывай лишнего."},
+            {"role": "user", "content": prompt}
+        ],
+        temperature=0.7,
+        max_tokens=300
+    )
+    return response['choices'][0]['message']['content'].strip()
 
 def extract_category(text):
     lowered = text.lower()

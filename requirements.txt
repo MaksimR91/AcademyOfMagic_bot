@@ -2,3 +2,4 @@ flask
 gunicorn
 requests
 boto3==1.38.35
+openai
