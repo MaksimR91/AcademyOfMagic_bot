@@ -66,18 +66,23 @@ def handle_message(message, phone_number_id, bot_display_number, contacts):
 
     logger.info(f"📩 Новое сообщение от {normalized_number}: {text}")
 
-    send_template_message(
-        phone_number_id,
-        normalized_number,
-        "test_template_1",
-        [name, category]
-    )
+    should_send_template = bool(name and category)
+    template_sent = False
 
-    send_text_message(
-        phone_number_id,
-        normalized_number,
-        f"Проверка обычного сообщения. Имя: {name}, категория: {category}"
-    )
+    if should_send_template:
+        template_sent = send_template_message(
+            phone_number_id,
+            normalized_number,
+            "test_template_1",
+            [name, category]
+        )
+
+    if not template_sent:
+        send_text_message(
+            phone_number_id,
+            normalized_number,
+            "Привет, долбоеб мой друг! Что хотел, долбоеб мой друг!"
+        )
 
 def extract_category(text):
     lowered = text.lower()
@@ -140,6 +145,8 @@ def send_template_message(phone_number_id, to, template_name, variables):
     response = requests.post(url, headers=headers, json=payload)
     logger.info(f"➡️ Отправка шаблона на {to}")
     logger.info("Ответ API WhatsApp: %s %s", response.status_code, response.text)
+
+    return response.status_code == 200
 
 def handle_status(status):
     logger.info("📥 Получен статус: %s", status)
