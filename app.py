@@ -10,7 +10,7 @@ app = Flask(__name__)
 ACCESS_TOKEN = "EAAIdbZCyeyLoBOxbGz6yhlvCxciZBAo0iTpR6ZAtSE9sQUybecx0M606FZAtq8ZB9oPmU7NEz8beJCDLj6obZBjA3SXUcJ2WdZBousBelgSdf5PPQ2NGs1KzzNjiijbwrBBLaAhfAu2U8eUf2WzCjslZC8wkXZA68YGnDAIv7UwVMWCU8EZBTniyYjl2zZBWP4i0CyfUrPdPZCeDiZCZAmbZBY4BgqODah2C3x53oMDSCJC3tBAF7OGfZAbiZCnYZD"
 API_URL = "https://graph.facebook.com/v15.0/{phone_number_id}/messages"
 VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
-openai_api_key = os.getenv("OPENAI_API_KEY")
+openai_api_key = os.getenv("OPENAI_APIKEY")
 
 client = OpenAI(api_key=openai_api_key)
 
