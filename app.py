@@ -132,7 +132,7 @@ def send_template_message(phone_number_id, to, template_name, variables):
         "template": {
             "name": template_name,
             "language": {
-                "code": "ru"
+                "code": "ua"
             },
             "components": [
                 {
