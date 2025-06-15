@@ -1,16 +1,18 @@
 from flask import Flask, request, jsonify
 from logger import logger
 import requests
-import openai
 import os
+from openai import OpenAI, OpenAIError
 
 app = Flask(__name__)
 
-ACCESS_TOKEN = os.getenv("WHATSAPP_ACCESS_TOKEN")
-VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
-openai.api_key = os.getenv("OPENAI_APIKEY")
-
+# Конфигурация
+ACCESS_TOKEN = "EAAIdbZCyeyLoBOxbGz6yhlvCxciZBAo0iTpR6ZAtSE9sQUybecx0M606FZAtq8ZB9oPmU7NEz8beJCDLj6obZBjA3SXUcJ2WdZBousBelgSdf5PPQ2NGs1KzzNjiijbwrBBLaAhfAu2U8eUf2WzCjslZC8wkXZA68YGnDAIv7UwVMWCU8EZBTniyYjl2zZBWP4i0CyfUrPdPZCeDiZCZAmbZBY4BgqODah2C3x53oMDSCJC3tBAF7OGfZAbiZCnYZD"
 API_URL = "https://graph.facebook.com/v15.0/{phone_number_id}/messages"
+VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
+openai_api_key = os.getenv("OPENAI_API_KEY")
+
+client = OpenAI(api_key=openai_api_key)
 
 @app.route('/', methods=['GET'])
 def home():
@@ -55,7 +57,6 @@ def webhook():
 def handle_message(message, phone_number_id, bot_display_number, contacts):
     from_number = message.get("from")
 
-    # Пропуск сообщений от самого себя
     if from_number.endswith(bot_display_number[-9:]):
         logger.info("🔁 Эхо-сообщение от самого себя — пропущено")
         return
@@ -71,42 +72,43 @@ def handle_message(message, phone_number_id, bot_display_number, contacts):
 
     logger.info(f"📩 Новое сообщение от {normalized_number}: {text}")
 
+    # Пытаемся получить ответ от ИИ
     try:
-        ai_response = get_ai_response(text)
-        send_text_message(phone_number_id, normalized_number, ai_response)
+        response = get_ai_response(text)
+        send_text_message(phone_number_id, normalized_number, response)
         return
     except Exception as e:
         logger.warning(f"🤖 Ошибка генерации ответа ИИ: {e}")
 
-    should_send_template = bool(name and category)
-    template_sent = False
-
-    if should_send_template:
-        template_sent = send_template_message(
+    # Пробуем отправить шаблон
+    if name and category:
+        sent = send_template_message(
             phone_number_id,
             normalized_number,
             "test_template_1",
             [name, category]
         )
+        if sent:
+            return
 
-    if not template_sent:
-        send_text_message(
-            phone_number_id,
-            normalized_number,
-            "Привет, долбоеб мой друг! Что хотел, долбоеб мой друг!"
-        )
+    # Если всё сломалось — fallback
+    send_text_message(
+        phone_number_id,
+        normalized_number,
+        "Привет, долбоеб мой друг! Что хотел, долбоеб мой друг!"
+    )
 
 def get_ai_response(prompt):
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",  # Можно заменить на gpt-4 при необходимости
+    chat_completion = client.chat.completions.create(
+        model="gpt-3.5-turbo",
         messages=[
-            {"role": "system", "content": "Ты вежливый ассистент иллюзиониста Арсения. Помогай клиенту, не выдумывай лишнего."},
+            {"role": "system", "content": "Ты ассистент иллюзиониста Арсения. Отвечай осмысленно, дружелюбно и кратко."},
             {"role": "user", "content": prompt}
         ],
         temperature=0.7,
         max_tokens=300
     )
-    return response['choices'][0]['message']['content'].strip()
+    return chat_completion.choices[0].message.content.strip()
 
 def extract_category(text):
     lowered = text.lower()
