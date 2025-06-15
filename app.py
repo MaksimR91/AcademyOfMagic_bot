@@ -2,22 +2,25 @@ from flask import Flask, request, jsonify
 from logger import logger
 import requests
 import os
-import openai  # ✅ официальный клиент
+from openai import OpenAI  # ✅ новый официальный SDK
 
 app = Flask(__name__)
 
 # Конфигурация
-ACCESS_TOKEN = "EAAIdbZ..."
+ACCESS_TOKEN = "EAAIdbZCyeyLoBOxbGz6yhlvCxciZBAo0iTpR6ZAtSE9sQUybecx0M606FZAtq8ZB9oPmU7NEz8beJCDLj6obZBjA3SXUcJ2WdZBousBelgSdf5PPQ2NGs1KzzNjiijbwrBBLaAhfAu2U8eUf2WzCjslZC8wkXZA68YGnDAIv7UwVMWCU8EZBTniyYjl2zZBWP4i0CyfUrPdPZCeDiZCZAmbZBY4BgqODah2C3x53oMDSCJC3tBAF7OGfZAbiZCnYZD"  # ⚠️ замени на актуальный
 API_URL = "https://graph.facebook.com/v15.0/{phone_number_id}/messages"
 VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
 openai_api_key = os.getenv("OPENAI_APIKEY")
 
-openai.api_key = openai_api_key
-logger.info(f"🔐 OpenAI API key начинается на: {openai.api_key[:5]}..., длина: {len(openai.api_key)}")
+# Инициализация клиента OpenAI
+client = OpenAI(api_key=openai_api_key)
+logger.info(f"🔐 OpenAI API key начинается на: {openai_api_key[:5]}..., длина: {len(openai_api_key)}")
+
 
 @app.route('/', methods=['GET'])
 def home():
     return "Сервер работает!"
+
 
 @app.route('/webhook', methods=['GET', 'POST'])
 def webhook():
@@ -54,6 +57,7 @@ def webhook():
                         handle_status(status)
 
         return jsonify({"status": "success"}), 200
+
 
 def handle_message(message, phone_number_id, bot_display_number, contacts):
     from_number = message.get("from")
@@ -96,9 +100,10 @@ def handle_message(message, phone_number_id, bot_display_number, contacts):
         "Привет, долбоеб мой друг! Что хотел, долбоеб мой друг!"
     )
 
+
 def get_ai_response(prompt):
     try:
-        response = openai.ChatCompletion.create(
+        response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": "Ты ассистент иллюзиониста Арсения. Отвечай осмысленно, дружелюбно и кратко."},
@@ -107,10 +112,11 @@ def get_ai_response(prompt):
             temperature=0.7,
             max_tokens=300
         )
-        return response.choices[0].message['content'].strip()
-    except openai.OpenAIError as e:
+        return response.choices[0].message.content.strip()
+    except Exception as e:
         logger.error(f"OpenAI API error: {e}")
         raise
+
 
 def extract_category(text):
     lowered = text.lower()
@@ -122,12 +128,14 @@ def extract_category(text):
         return "семейное"
     return "наше"
 
+
 def normalize_for_meta(number):
     if number.startswith('77'):
         return '787' + number[2:]
     if number.startswith('79'):
         return '789' + number[2:]
     return number
+
 
 def send_text_message(phone_number_id, to, text):
     url = API_URL.format(phone_number_id=phone_number_id)
@@ -146,6 +154,7 @@ def send_text_message(phone_number_id, to, text):
     response = requests.post(url, headers=headers, json=payload)
     logger.info(f"➡️ Отправка текста на {to}")
     logger.info("Ответ API WhatsApp: %s %s", response.status_code, response.text)
+
 
 def send_template_message(phone_number_id, to, template_name, variables):
     url = API_URL.format(phone_number_id=phone_number_id)
@@ -176,8 +185,11 @@ def send_template_message(phone_number_id, to, template_name, variables):
 
     return response.status_code == 200
 
+
 def handle_status(status):
     logger.info("📥 Получен статус: %s", status)
 
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
+
