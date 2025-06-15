@@ -4,8 +4,7 @@ import requests
 
 app = Flask(__name__)
 
-ACCESS_TOKEN = "EAAIdbZCyeyLoBO4mL6jbKTPp3RsCZA18zLpgxZBEJTDuQlfR2LdK1fInh9iG0Q607Aopi6iRJ2N7gTaSo51Tt2pp1aJLJWLZA5LHGgXZAnwf2sCJ1orvBiHNCIF9e0GQLrlFI7KPS7wjkZAPhpLsiRMj9wN9lT2sbahqP40BshGVIj2cH2xHcKOZA6xXOcrNZBHtr7d6pMMHqShRIGi8ydYiNz0ELMWOBRgZD"
-VERIFY_TOKEN = "magicBotWebhook2025_9Jr4cT"
+ACCESS_TOKEN = "EAAIdbZCyeyLoBOxxy2S2mlFpAiS9Vrl64FCu9MSwbQN7yWRneFY8k8ZAUyBuxaezT5ORSLnY6mkhF0OzrakdkZA7aGNiaZCMWbdMoIvn15Mz2cuAYZAtTK393hwMhpWQvPy6Bm1Y01LJmEWifni4tIIamM2rWmUzvGc4r4nGKeaHj2mYNjWPpRuAXzG6C6gGKOG4JYBzWMZAgjcSQF7cQePxGyKmjx68TKQq9dxJ2fYWfAuZCtHuPAZD"
 API_URL = "https://graph.facebook.com/v15.0/{phone_number_id}/messages"
 
 @app.route('/', methods=['GET'])
