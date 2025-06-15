@@ -2,17 +2,18 @@ from flask import Flask, request, jsonify
 from logger import logger
 import requests
 import os
-from openai import OpenAI, OpenAIError
+import openai  # ✅ официальный клиент
 
 app = Flask(__name__)
 
 # Конфигурация
-ACCESS_TOKEN = "EAAIdbZCyeyLoBOxbGz6yhlvCxciZBAo0iTpR6ZAtSE9sQUybecx0M606FZAtq8ZB9oPmU7NEz8beJCDLj6obZBjA3SXUcJ2WdZBousBelgSdf5PPQ2NGs1KzzNjiijbwrBBLaAhfAu2U8eUf2WzCjslZC8wkXZA68YGnDAIv7UwVMWCU8EZBTniyYjl2zZBWP4i0CyfUrPdPZCeDiZCZAmbZBY4BgqODah2C3x53oMDSCJC3tBAF7OGfZAbiZCnYZD"
+ACCESS_TOKEN = "EAAIdbZ..."
 API_URL = "https://graph.facebook.com/v15.0/{phone_number_id}/messages"
 VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
 openai_api_key = os.getenv("OPENAI_APIKEY")
 
-client = OpenAI(api_key=openai_api_key)
+openai.api_key = openai_api_key
+logger.info(f"🔐 OpenAI API key начинается на: {openai.api_key[:5]}..., длина: {len(openai.api_key)}")
 
 @app.route('/', methods=['GET'])
 def home():
@@ -72,7 +73,6 @@ def handle_message(message, phone_number_id, bot_display_number, contacts):
 
     logger.info(f"📩 Новое сообщение от {normalized_number}: {text}")
 
-    # Пытаемся получить ответ от ИИ
     try:
         response = get_ai_response(text)
         send_text_message(phone_number_id, normalized_number, response)
@@ -80,7 +80,6 @@ def handle_message(message, phone_number_id, bot_display_number, contacts):
     except Exception as e:
         logger.warning(f"🤖 Ошибка генерации ответа ИИ: {e}")
 
-    # Пробуем отправить шаблон
     if name and category:
         sent = send_template_message(
             phone_number_id,
@@ -91,7 +90,6 @@ def handle_message(message, phone_number_id, bot_display_number, contacts):
         if sent:
             return
 
-    # Если всё сломалось — fallback
     send_text_message(
         phone_number_id,
         normalized_number,
@@ -99,16 +97,20 @@ def handle_message(message, phone_number_id, bot_display_number, contacts):
     )
 
 def get_ai_response(prompt):
-    chat_completion = client.chat.completions.create(
-        model="gpt-3.5-turbo",
-        messages=[
-            {"role": "system", "content": "Ты ассистент иллюзиониста Арсения. Отвечай осмысленно, дружелюбно и кратко."},
-            {"role": "user", "content": prompt}
-        ],
-        temperature=0.7,
-        max_tokens=300
-    )
-    return chat_completion.choices[0].message.content.strip()
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "Ты ассистент иллюзиониста Арсения. Отвечай осмысленно, дружелюбно и кратко."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.7,
+            max_tokens=300
+        )
+        return response.choices[0].message['content'].strip()
+    except openai.OpenAIError as e:
+        logger.error(f"OpenAI API error: {e}")
+        raise
 
 def extract_category(text):
     lowered = text.lower()
