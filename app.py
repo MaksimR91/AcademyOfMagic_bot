@@ -78,10 +78,9 @@ def handle_message(message, phone_number_id, bot_display_number, contacts):
 
     logger.info(f"📬 Новое сообщение от {normalized_number}: {text}")
 
-    # Фильтрация коротких ответов
     if text.lower() in SKIP_AI_PHRASES:
         logger.info("📅 Сообщение в списке фильтрации, OpenAI не вызывается")
-        return  # ничего не отправляем
+        return
 
     if len(text) > 500:
         text = text[:500]
@@ -103,11 +102,14 @@ def handle_message(message, phone_number_id, bot_display_number, contacts):
 
     except Exception as e:
         logger.error(f"🤖 Ошибка генерации OpenAI: {e}")
-        if name and category:
-            sent = send_template_message(phone_number_id, normalized_number, "test_template_1", [name, category])
-            if sent:
-                return
-        send_text_message(phone_number_id, normalized_number, "Привет, долбоеб мой друг! Что хотел, долбоеб мой друг!")
+
+    # Продолжаем по алгоритму после ошибки
+    if name and category:
+        sent = send_template_message(phone_number_id, normalized_number, "test_template_1", [name, category])
+        if sent:
+            return
+
+    send_text_message(phone_number_id, normalized_number, "Привет, долбоеб мой друг! Что хотел, долбоеб мой друг!")
 
 def get_ai_response(prompt):
     response = client.chat.completions.create(
@@ -188,4 +190,5 @@ def handle_status(status):
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
+
 
