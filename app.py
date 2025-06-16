@@ -2,25 +2,23 @@ from flask import Flask, request, jsonify
 from logger import logger
 import requests
 import os
-from openai import OpenAI, RateLimitError, APIError, Timeout  # подключаем нужные ошибки
+from openai import OpenAI, RateLimitError, APIError, Timeout
 
 app = Flask(__name__)
 
-# Конфигурация
-ACCESS_TOKEN = "EAAIdbZCyeyLoBOxbGz6yhlvCxciZBAo0iTpR6ZAtSE9sQUybecx0M606FZAtq8ZB9oPmU7NEz8beJCDLj6obZBjA3SXUcJ2WdZBousBelgSdf5PPQ2NGs1KzzNjiijbwrBBLaAhfAu2U8eUf2WzCjslZC8wkXZA68YGnDAIv7UwVMWCU8EZBTniyYjl2zZBWP4i0CyfUrPdPZCeDiZCZAmbZBY4BgqODah2C3x53oMDSCJC3tBAF7OGfZAbiZCnYZD"  # ⚠️ замени на актуальный
+ACCESS_TOKEN = "EAAIdbZCyeyLoBOzWYoEwiqYtC184ujYfMPQrHo9lp1YKiO4SO5PZB9oPengNIZA0BqLkxhR87bHJqnDgAo9WmdcrQ7M7h4fGZApChpYKItpHSNfW0cPnzuP6ifIyH3e66QvWADnMfZBik9uc40DkxwMeBJCHety9RYnA8KZAPVrBiqPZBjZCtBdKRDbOY4jzem6zeAZCxcTF1pZAhXgY72PvMkyGAwZCvBW3d5VtMNNEaD4zxFvlDMpGNoZD"
 API_URL = "https://graph.facebook.com/v15.0/{phone_number_id}/messages"
 VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
 openai_api_key = os.getenv("OPENAI_APIKEY")
 
-# Инициализация клиента OpenAI
 client = OpenAI(api_key=openai_api_key)
 logger.info(f"🔐 OpenAI API key начинается на: {openai_api_key[:5]}..., длина: {len(openai_api_key)}")
 
+SKIP_AI_PHRASES = ["ок", "спасибо", "понятно", "ясно", "пока", "привет", "здрасте", "да", "нет"]
 
 @app.route('/', methods=['GET'])
 def home():
     return "Сервер работает!"
-
 
 @app.route('/webhook', methods=['GET', 'POST'])
 def webhook():
@@ -58,7 +56,6 @@ def webhook():
 
         return jsonify({"status": "success"}), 200
 
-
 def handle_message(message, phone_number_id, bot_display_number, contacts):
     from_number = message.get("from")
 
@@ -66,7 +63,7 @@ def handle_message(message, phone_number_id, bot_display_number, contacts):
         logger.info("🔁 Эхо-сообщение от самого себя — пропущено")
         return
 
-    text = message.get("text", {}).get("body")
+    text = message.get("text", {}).get("body", "").strip()
     if not text:
         logger.info("📎 Сообщение без текста — пропущено")
         return
@@ -75,57 +72,51 @@ def handle_message(message, phone_number_id, bot_display_number, contacts):
     category = extract_category(text)
     normalized_number = normalize_for_meta(from_number)
 
-    logger.info(f"📩 Новое сообщение от {normalized_number}: {text}")
+    logger.info(f"📬 Новое сообщение от {normalized_number}: {text}")
+
+    # Фильтрация коротких ответов
+    if text.lower() in SKIP_AI_PHRASES:
+        logger.info("📅 Сообщение в списке фильтрации, OpenAI не вызывается")
+        return  # ничего не отправляем
+
+    if len(text) > 500:
+        text = text[:500]
 
     try:
-        # Один запрос к OpenAI, без повторов
         response = get_ai_response(text)
         send_text_message(phone_number_id, normalized_number, response)
         return
 
     except RateLimitError:
-        logger.warning("⚠️ Превышен лимит OpenAI. Ответ не отправлен.")
+        logger.warning("⚠️ Превышен лимит OpenAI")
         send_text_message(phone_number_id, normalized_number, "Сервер перегружен. Попробуйте позже.")
         return
 
     except (APIError, Timeout) as e:
-        logger.error(f"⛔ Ошибка OpenAI (сетевая): {e}")
+        logger.error(f"⛔️ Сетевая ошибка OpenAI: {e}")
         send_text_message(phone_number_id, normalized_number, "Техническая ошибка. Повторите позже.")
         return
 
     except Exception as e:
-        logger.error(f"🤖 Ошибка генерации ответа ИИ: {e}")
-        # ИИ не сработал, отправляем шаблон
+        logger.error(f"🤖 Ошибка генерации OpenAI: {e}")
         if name and category:
-            sent = send_template_message(
-                phone_number_id,
-                normalized_number,
-                "test_template_1",
-                [name, category]
-            )
+            sent = send_template_message(phone_number_id, normalized_number, "test_template_1", [name, category])
             if sent:
                 return
-
-        # если и шаблон не сработал — fallback
-        send_text_message(
-            phone_number_id,
-            normalized_number,
-            "Привет, долбоеб мой друг! Что хотел, долбоеб мой друг!"
-        )
-
+        send_text_message(phone_number_id, normalized_number, "Привет, долбоеб мой друг! Что хотел, долбоеб мой друг!")
 
 def get_ai_response(prompt):
     response = client.chat.completions.create(
-        model="gpt-3.5-turbo",
+        model="gpt-3.5-turbo-0125",
         messages=[
             {"role": "system", "content": "Ты ассистент иллюзиониста Арсения. Отвечай осмысленно, дружелюбно и кратко."},
             {"role": "user", "content": prompt}
         ],
         temperature=0.7,
-        max_tokens=300
+        max_tokens=150
     )
+    logger.info(f"📈 Использовано токенов: {response.usage.total_tokens}")
     return response.choices[0].message.content.strip()
-
 
 def extract_category(text):
     lowered = text.lower()
@@ -137,14 +128,12 @@ def extract_category(text):
         return "семейное"
     return "наше"
 
-
 def normalize_for_meta(number):
     if number.startswith('77'):
         return '787' + number[2:]
     if number.startswith('79'):
         return '789' + number[2:]
     return number
-
 
 def send_text_message(phone_number_id, to, text):
     url = API_URL.format(phone_number_id=phone_number_id)
@@ -162,8 +151,7 @@ def send_text_message(phone_number_id, to, text):
     }
     response = requests.post(url, headers=headers, json=payload)
     logger.info(f"➡️ Отправка текста на {to}")
-    logger.info("Ответ API WhatsApp: %s %s", response.status_code, response.text)
-
+    logger.info("API WhatsApp ответ: %s %s", response.status_code, response.text)
 
 def send_template_message(phone_number_id, to, template_name, variables):
     url = API_URL.format(phone_number_id=phone_number_id)
@@ -177,9 +165,7 @@ def send_template_message(phone_number_id, to, template_name, variables):
         "type": "template",
         "template": {
             "name": template_name,
-            "language": {
-                "code": "ru"
-            },
+            "language": {"code": "ru"},
             "components": [
                 {
                     "type": "body",
@@ -190,15 +176,11 @@ def send_template_message(phone_number_id, to, template_name, variables):
     }
     response = requests.post(url, headers=headers, json=payload)
     logger.info(f"➡️ Отправка шаблона на {to}")
-    logger.info("Ответ API WhatsApp: %s %s", response.status_code, response.text)
-
+    logger.info("API WhatsApp ответ: %s %s", response.status_code, response.text)
     return response.status_code == 200
 
-
 def handle_status(status):
-    logger.info("📥 Получен статус: %s", status)
-
+    logger.info("📥 Статус: %s", status)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
-
