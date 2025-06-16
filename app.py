@@ -20,6 +20,10 @@ SKIP_AI_PHRASES = ["ок", "спасибо", "понятно", "ясно", "по
 def home():
     return "Сервер работает!"
 
+@app.route("/ping")
+def ping():
+    return "OK", 200
+
 @app.route('/webhook', methods=['GET', 'POST'])
 def webhook():
     if request.method == 'GET':
@@ -184,3 +188,4 @@ def handle_status(status):
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
+
