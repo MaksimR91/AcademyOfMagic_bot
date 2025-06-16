@@ -2,7 +2,7 @@ from flask import Flask, request, jsonify
 from logger import logger
 import requests
 import os
-from openai import OpenAI, RateLimitError, APIError, Timeout
+from openai import OpenAI, RateLimitError, APIError, Timeout, AuthenticationError  # ⬅️ добавлен AuthenticationError
 
 app = Flask(__name__)
 
@@ -86,8 +86,14 @@ def handle_message(message, phone_number_id, bot_display_number, contacts):
         text = text[:500]
 
     try:
+        # 💬 Попытка получить ответ от OpenAI
         response = get_ai_response(text)
         send_text_message(phone_number_id, normalized_number, response)
+        return
+
+    except AuthenticationError as e:
+        logger.error(f"🔐 Ошибка авторизации OpenAI: {e}")
+        send_text_message(phone_number_id, normalized_number, "Ошибка авторизации. Проверьте ключ OpenAI.")
         return
 
     except RateLimitError:
@@ -101,7 +107,7 @@ def handle_message(message, phone_number_id, bot_display_number, contacts):
         return
 
     except Exception as e:
-        logger.error(f"🤖 Ошибка генерации OpenAI: {e}")
+        logger.error(f"🤖 Неизвестная ошибка OpenAI: {e}")
 
     # Продолжаем по алгоритму после ошибки
     if name and category:
@@ -187,6 +193,7 @@ def send_template_message(phone_number_id, to, template_name, variables):
 
 def handle_status(status):
     logger.info("📥 Статус: %s", status)
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
