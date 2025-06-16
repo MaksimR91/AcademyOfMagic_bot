@@ -92,7 +92,7 @@ def handle_message(message, phone_number_id, bot_display_number, contacts):
         return
 
     except AuthenticationError as e:
-    logger.error(f"🔐 Ошибка авторизации OpenAI: {e}")
+        logger.error(f"🔐 Ошибка авторизации OpenAI: {e}")
 
     except RateLimitError:
         logger.warning("⚠️ Превышен лимит OpenAI")
