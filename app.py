@@ -6,7 +6,7 @@ from openai import OpenAI, RateLimitError, APIError, Timeout, AuthenticationErro
 
 app = Flask(__name__)
 
-ACCESS_TOKEN = "EAAIdbZCyeyLoBOzWYoEwiqYtC184ujYfMPQrHo9lp1YKiO4SO5PZB9oPengNIZA0BqLkxhR87bHJqnDgAo9WmdcrQ7M7h4fGZApChpYKItpHSNfW0cPnzuP6ifIyH3e66QvWADnMfZBik9uc40DkxwMeBJCHety9RYnA8KZAPVrBiqPZBjZCtBdKRDbOY4jzem6zeAZCxcTF1pZAhXgY72PvMkyGAwZCvBW3d5VtMNNEaD4zxFvlDMpGNoZD"
+ACCESS_TOKEN = "EAAIdbZCyeyLoBOxkSWW5BkQQ106y1fCKZBIVqy17biLrLZCakeO4X2i6mv0p9l4fqgl3feTGa4iZCkjVVNLOqGkNrbAqe9oENHoQEdDRYSBQ2cfUpZBGu9KCwl2jEFSPrrXMDApUbD5Y6mdyWTLBVch2OaZBHNCmp5RktPuI4mBT9AKyEUBZClms2ahZCZA1OC8l4ZAlvRjy0t4GGGdzaRfYHBNtXTGZChVNyhFUjZBaNHvZC3UuZBNlzNvyoZD"
 API_URL = "https://graph.facebook.com/v15.0/{phone_number_id}/messages"
 VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
 openai_api_key = os.getenv("OPENAI_APIKEY")
