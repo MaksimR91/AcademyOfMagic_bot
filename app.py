@@ -2,7 +2,9 @@ from flask import Flask, request, jsonify
 from logger import logger
 import requests
 import os
-from openai import OpenAI, RateLimitError, APIError, Timeout, AuthenticationError  # ⬅️ добавлен AuthenticationError
+import gc
+import psutil
+from openai import OpenAI, RateLimitError, APIError, Timeout, AuthenticationError
 
 app = Flask(__name__)
 
@@ -15,6 +17,30 @@ client = OpenAI(api_key=openai_api_key)
 logger.info(f"🔐 OpenAI API key начинается на: {openai_api_key[:5]}..., длина: {len(openai_api_key)}")
 
 SKIP_AI_PHRASES = ["ок", "спасибо", "понятно", "ясно", "пока", "привет", "здрасте", "да", "нет"]
+
+@app.after_request
+def after_request_cleanup(response):
+    gc.collect()  # Принудительная очистка мусора
+    log_memory_usage()
+    cleanup_temp_files()
+    return response
+
+def log_memory_usage():
+    process = psutil.Process()
+    mem_mb = process.memory_info().rss / 1024 / 1024
+    logger.info(f"🧠 Используемая память: {mem_mb:.2f} MB")
+
+def cleanup_temp_files():
+    tmp_path = "/tmp"
+    if not os.path.exists(tmp_path):
+        return
+    for fname in os.listdir(tmp_path):
+        if fname.endswith((".wav", ".mp3", ".ogg")):
+            try:
+                os.remove(os.path.join(tmp_path, fname))
+                logger.info(f"🧹 Удален временный файл: {fname}")
+            except Exception as e:
+                logger.warning(f"❌ Ошибка удаления файла {fname}: {e}")
 
 @app.route('/', methods=['GET'])
 def home():
@@ -86,7 +112,6 @@ def handle_message(message, phone_number_id, bot_display_number, contacts):
         text = text[:500]
 
     try:
-        # 💬 Попытка получить ответ от OpenAI
         response = get_ai_response(text)
         send_text_message(phone_number_id, normalized_number, response)
         return
@@ -107,7 +132,6 @@ def handle_message(message, phone_number_id, bot_display_number, contacts):
     except Exception as e:
         logger.error(f"🤖 Неизвестная ошибка OpenAI: {e}")
 
-    # Продолжаем по алгоритму после ошибки
     if name and category:
         sent = send_template_message(phone_number_id, normalized_number, "test_template_1", [name, category])
         if sent:
@@ -192,8 +216,5 @@ def send_template_message(phone_number_id, to, template_name, variables):
 def handle_status(status):
     logger.info("📥 Статус: %s", status)
 
-
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
-
-
