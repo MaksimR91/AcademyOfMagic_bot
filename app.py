@@ -17,7 +17,7 @@ VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
 openai_api_key = os.getenv("OPENAI_APIKEY")
 
 client = OpenAI(api_key=openai_api_key)
-logger.info(f"\ud83d\udd10 OpenAI API key начинается на: {openai_api_key[:5]}..., длина: {len(openai_api_key)}")
+logger.info(f"🔐 OpenAI API key начинается на: {openai_api_key[:5]}..., длина: {len(openai_api_key)}")
 
 SKIP_AI_PHRASES = ["ок", "спасибо", "понятно", "ясно", "пока", "привет", "здрасте", "да", "нет"]
 
@@ -31,7 +31,7 @@ def after_request_cleanup(response):
 def log_memory_usage():
     process = psutil.Process()
     mem_mb = process.memory_info().rss / 1024 / 1024
-    logger.info(f"\ud83e\udde0 Используемая память: {mem_mb:.2f} MB")
+    logger.info(f"Используемая память: {mem_mb:.2f} MB")
 
 def cleanup_temp_files():
     tmp_path = "/tmp"
@@ -41,9 +41,9 @@ def cleanup_temp_files():
         if fname.endswith((".wav", ".mp3", ".ogg")):
             try:
                 os.remove(os.path.join(tmp_path, fname))
-                logger.info(f"\ud83e\udd79 Удален временный файл: {fname}")
+                logger.info(f"🥹 Удален временный файл: {fname}")
             except Exception as e:
-                logger.warning(f"\u274c Ошибка удаления файла {fname}: {e}")
+                logger.warning(f"❌ Ошибка удаления файла {fname}: {e}")
 
 @app.route('/', methods=['GET'])
 def home():
@@ -93,7 +93,7 @@ def handle_message(message, phone_number_id, bot_display_number, contacts):
     from_number = message.get("from")
 
     if from_number.endswith(bot_display_number[-9:]):
-        logger.info("\ud83d\udd01 Эхо-сообщение от самого себя — пропущено")
+        logger.info("🔁 Эхо-сообщение от самого себя — пропущено")
         return
 
     normalized_number = normalize_for_meta(from_number)
@@ -104,25 +104,25 @@ def handle_message(message, phone_number_id, bot_display_number, contacts):
         process_text_message(text, normalized_number, phone_number_id, name)
 
     elif message.get("type") == "audio":
-        logger.info("\ud83c\udfbc Аудио передаётся на фон для обработки")
+        logger.info("🎤 Аудио передаётся на фон для обработки")
         threading.Thread(target=handle_audio_async, args=(message, phone_number_id, normalized_number, name)).start()
 
 def handle_audio_async(message, phone_number_id, normalized_number, name):
     try:
         audio_id = message["audio"]["id"]
-        logger.info(f"\ud83c\udfbf Обработка голосового файла, media ID: {audio_id}")
-        text = transcribe_voice_message(audio_id, phone_number_id, normalized_number)
+        logger.info(f"🎧 Обработка голосового файла, media ID: {audio_id}")
+        text = transcribe_voice_message(audio_id)
         if not text:
             return
         process_text_message(text, normalized_number, phone_number_id, name)
     except Exception as e:
-        logger.error(f"\u274c Ошибка фоновой обработки аудио: {e}")
+        logger.error(f"❌ Ошибка фоновой обработки аудио: {e}")
 
 def process_text_message(text, normalized_number, phone_number_id, name):
     if not text:
         return
 
-    logger.info(f"\ud83d\udcec Сообщение от {normalized_number}: {text}")
+    logger.info(f"📬 Сообщение от {normalized_number}: {text}")
 
     if text.lower() in SKIP_AI_PHRASES:
         return
@@ -136,20 +136,20 @@ def process_text_message(text, normalized_number, phone_number_id, name):
         return
 
     except AuthenticationError as e:
-        logger.error(f"\ud83d\udd10 Ошибка авторизации OpenAI: {e}")
+        logger.error(f"🔐 Ошибка авторизации OpenAI: {e}")
 
     except RateLimitError:
-        logger.warning("\u26a0\ufe0f Превышен лимит OpenAI")
+        logger.warning("⚠️ Превышен лимит OpenAI")
         send_text_message(phone_number_id, normalized_number, "Сервер перегружен. Попробуйте позже.")
         return
 
     except (APIError, Timeout) as e:
-        logger.error(f"\u26d4\ufe0f Сетевая ошибка OpenAI: {e}")
+        logger.error(f"⛔️ Сетевая ошибка OpenAI: {e}")
         send_text_message(phone_number_id, normalized_number, "Техническая ошибка. Повторите позже.")
         return
 
     except Exception as e:
-        logger.error(f"\ud83e\udd16 Неизвестная ошибка OpenAI: {e}")
+        logger.error(f"🤖 Неизвестная ошибка OpenAI: {e}")
 
     category = extract_category(text)
     if name and category:
@@ -159,7 +159,7 @@ def process_text_message(text, normalized_number, phone_number_id, name):
 
     send_text_message(phone_number_id, normalized_number, "Привет, долбоеб мой друг! Что хотел, долбоеб мой друг!")
 
-def transcribe_voice_message(audio_id, phone_number_id, normalized_number):
+def transcribe_voice_message(audio_id):
     try:
         url = f"https://graph.facebook.com/v15.0/{audio_id}"
         headers = {"Authorization": f"Bearer {ACCESS_TOKEN}"}
@@ -175,11 +175,10 @@ def transcribe_voice_message(audio_id, phone_number_id, normalized_number):
 
         audio = AudioSegment.from_file(audio_path)
         duration_sec = len(audio) / 1000
-        logger.info(f"\u23f1\ufe0f Длительность аудио: {duration_sec:.1f} секунд")
+        logger.info(f"⏱️ Длительность аудио: {duration_sec:.1f} секунд")
         if duration_sec > 60:
-            logger.warning("\u26a0\ufe0f Аудио превышает 60 секунд")
-            send_text_message(phone_number_id, normalized_number, "Пожалуйста, пришлите голосовое сообщение не длиннее 1 минуты")
-            return None
+            logger.warning("⚠️ Аудио превышает 60 секунд")
+            return "Пожалуйста, пришлите голосовое сообщение не длиннее 1 минуты."
 
         with open(audio_path, "rb") as audio_file:
             transcript = client.audio.transcriptions.create(
@@ -187,11 +186,11 @@ def transcribe_voice_message(audio_id, phone_number_id, normalized_number):
                 file=audio_file,
                 response_format="text"
             )
-        logger.info(f"\ud83d\udd8d\ufe0f Распознано: {transcript}")
+        logger.info(f"📝 Распознано: {transcript}")
         return transcript.strip()
 
     except Exception as e:
-        logger.error(f"\u274c Ошибка транскрибации аудио: {e}")
+        logger.error(f"❌ Ошибка транскрибации аудио: {e}")
         return None
 
 def get_ai_response(prompt):
@@ -207,8 +206,8 @@ def get_ai_response(prompt):
         timeout=20
     )
     end = time.time()
-    logger.info(f"\ud83d\udd52 Время генерации OpenAI: {end - start:.2f} сек")
-    logger.info(f"\ud83d\udcc8 Использовано токенов: {response.usage.total_tokens}")
+    logger.info(f"🕒 Время генерации OpenAI: {end - start:.2f} сек")
+    logger.info(f"📈 Использовано токенов: {response.usage.total_tokens}")
     return response.choices[0].message.content.strip()
 
 def extract_category(text):
@@ -241,7 +240,7 @@ def send_text_message(phone_number_id, to, text):
         "text": {"body": text}
     }
     response = requests.post(url, headers=headers, json=payload)
-    logger.info(f"\u27a1\ufe0f Отправка текста на {to}")
+    logger.info(f"➡️ Отправка текста на {to}")
     logger.info("API WhatsApp ответ: %s %s", response.status_code, response.text)
 
 def send_template_message(phone_number_id, to, template_name, variables):
@@ -266,12 +265,12 @@ def send_template_message(phone_number_id, to, template_name, variables):
         }
     }
     response = requests.post(url, headers=headers, json=payload)
-    logger.info(f"\u27a1\ufe0f Отправка шаблона на {to}")
+    logger.info(f"➡️ Отправка шаблона на {to}")
     logger.info("API WhatsApp ответ: %s %s", response.status_code, response.text)
     return response.status_code == 200
 
 def handle_status(status):
-    logger.info("\ud83d\udce5 Статус: %s", status)
+    logger.info("📥 Статус: %s", status)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
