@@ -4,6 +4,7 @@ import requests
 import os
 import gc
 import psutil
+import time
 from openai import OpenAI, RateLimitError, APIError, Timeout, AuthenticationError
 
 app = Flask(__name__)
@@ -20,7 +21,7 @@ SKIP_AI_PHRASES = ["ок", "спасибо", "понятно", "ясно", "по
 
 @app.after_request
 def after_request_cleanup(response):
-    gc.collect()  # Принудительная очистка мусора
+    gc.collect()
     log_memory_usage()
     cleanup_temp_files()
     return response
@@ -140,6 +141,7 @@ def handle_message(message, phone_number_id, bot_display_number, contacts):
     send_text_message(phone_number_id, normalized_number, "Привет, долбоеб мой друг! Что хотел, долбоеб мой друг!")
 
 def get_ai_response(prompt):
+    start = time.time()
     response = client.chat.completions.create(
         model="gpt-3.5-turbo-0125",
         messages=[
@@ -147,8 +149,11 @@ def get_ai_response(prompt):
             {"role": "user", "content": prompt}
         ],
         temperature=0.7,
-        max_tokens=150
+        max_tokens=150,
+        timeout=20  # ограничим запрос
     )
+    end = time.time()
+    logger.info(f"🕒 Время генерации OpenAI: {end - start:.2f} сек")
     logger.info(f"📈 Использовано токенов: {response.usage.total_tokens}")
     return response.choices[0].message.content.strip()
 
