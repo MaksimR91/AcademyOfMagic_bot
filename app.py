@@ -94,19 +94,26 @@ def handle_message(message, phone_number_id, bot_display_number, contacts):
         logger.info("🔁 Эхо-сообщение от самого себя — пропущено")
         return
 
-    text = message.get("text", {}).get("body", "").strip()
+    normalized_number = normalize_for_meta(from_number)
+    name = contacts[0].get("profile", {}).get("name") if contacts else "друг"
+
+    text = None
+
+    if message.get("type") == "text":
+        text = message.get("text", {}).get("body", "").strip()
+    elif message.get("type") == "audio":
+        audio_id = message["audio"]["id"]
+        logger.info(f"🎤 Получен голосовой файл, media ID: {audio_id}")
+        text = transcribe_voice_message(audio_id)
+
     if not text:
-        logger.info("📎 Сообщение без текста — пропущено")
+        logger.info("❌ Сообщение не содержит текста — пропущено")
         return
 
-    name = contacts[0].get("profile", {}).get("name") if contacts else "друг"
-    category = extract_category(text)
-    normalized_number = normalize_for_meta(from_number)
-
-    logger.info(f"📬 Новое сообщение от {normalized_number}: {text}")
+    logger.info(f"📬 Сообщение от {normalized_number}: {text}")
 
     if text.lower() in SKIP_AI_PHRASES:
-        logger.info("📅 Сообщение в списке фильтрации, OpenAI не вызывается")
+        logger.info("🗕️ Сообщение в списке фильтрации, OpenAI не вызывается")
         return
 
     if len(text) > 500:
@@ -133,12 +140,40 @@ def handle_message(message, phone_number_id, bot_display_number, contacts):
     except Exception as e:
         logger.error(f"🤖 Неизвестная ошибка OpenAI: {e}")
 
+    category = extract_category(text)
     if name and category:
         sent = send_template_message(phone_number_id, normalized_number, "test_template_1", [name, category])
         if sent:
             return
 
     send_text_message(phone_number_id, normalized_number, "Привет, долбоеб мой друг! Что хотел, долбоеб мой друг!")
+
+def transcribe_voice_message(audio_id):
+    try:
+        url = f"https://graph.facebook.com/v15.0/{audio_id}"
+        headers = {"Authorization": f"Bearer {ACCESS_TOKEN}"}
+        resp = requests.get(url, headers=headers)
+        resp.raise_for_status()
+        media_url = resp.json().get("url")
+
+        media_resp = requests.get(media_url, headers=headers)
+        media_resp.raise_for_status()
+        audio_path = "/tmp/audio.ogg"
+        with open(audio_path, "wb") as f:
+            f.write(media_resp.content)
+
+        with open(audio_path, "rb") as audio_file:
+            transcript = client.audio.transcriptions.create(
+                model="whisper-1",
+                file=audio_file,
+                response_format="text"
+            )
+        logger.info(f"📝 Распознано: {transcript}")
+        return transcript.strip()
+
+    except Exception as e:
+        logger.error(f"❌ Ошибка транскрибации аудио: {e}")
+        return None
 
 def get_ai_response(prompt):
     start = time.time()
@@ -150,7 +185,7 @@ def get_ai_response(prompt):
         ],
         temperature=0.7,
         max_tokens=150,
-        timeout=20  # ограничим запрос
+        timeout=20
     )
     end = time.time()
     logger.info(f"🕒 Время генерации OpenAI: {end - start:.2f} сек")
@@ -184,9 +219,7 @@ def send_text_message(phone_number_id, to, text):
         "messaging_product": "whatsapp",
         "to": to,
         "type": "text",
-        "text": {
-            "body": text
-        }
+        "text": {"body": text}
     }
     response = requests.post(url, headers=headers, json=payload)
     logger.info(f"➡️ Отправка текста на {to}")
@@ -223,3 +256,4 @@ def handle_status(status):
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
+
