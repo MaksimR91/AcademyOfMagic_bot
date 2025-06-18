@@ -111,10 +111,44 @@ def handle_audio_async(message, phone_number_id, normalized_number, name):
     try:
         audio_id = message["audio"]["id"]
         logger.info(f"🎧 Обработка голосового файла, media ID: {audio_id}")
-        text = transcribe_voice_message(audio_id)
-        if not text:
+
+        # Получаем URL и скачиваем аудиофайл
+        url = f"https://graph.facebook.com/v15.0/{audio_id}"
+        headers = {"Authorization": f"Bearer {ACCESS_TOKEN}"}
+        resp = requests.get(url, headers=headers)
+        resp.raise_for_status()
+        media_url = resp.json().get("url")
+
+        media_resp = requests.get(media_url, headers=headers)
+        media_resp.raise_for_status()
+        audio_path = "/tmp/audio.ogg"
+        with open(audio_path, "wb") as f:
+            f.write(media_resp.content)
+
+        # Проверяем длительность
+        audio = AudioSegment.from_file(audio_path)
+        duration_sec = len(audio) / 1000
+        logger.info(f"⏱️ Длительность аудио: {duration_sec:.1f} секунд")
+
+        if duration_sec > 60:
+            logger.warning("⚠️ Аудио превышает 60 секунд")
+            send_text_message(phone_number_id, normalized_number,
+                              "Пожалуйста, пришлите голосовое сообщение не длиннее 1 минуты.")
             return
-        process_text_message(text, normalized_number, phone_number_id, name)
+
+        # Транскрибация
+        with open(audio_path, "rb") as audio_file:
+            transcript = client.audio.transcriptions.create(
+                model="whisper-1",
+                file=audio_file,
+                response_format="text"
+            )
+        logger.info(f"📝 Распознано: {transcript}")
+        text = transcript.strip()
+
+        if text:
+            process_text_message(text, normalized_number, phone_number_id, name)
+
     except Exception as e:
         logger.error(f"❌ Ошибка фоновой обработки аудио: {e}")
 
@@ -158,40 +192,6 @@ def process_text_message(text, normalized_number, phone_number_id, name):
             return
 
     send_text_message(phone_number_id, normalized_number, "Привет, долбоеб мой друг! Что хотел, долбоеб мой друг!")
-
-def transcribe_voice_message(audio_id):
-    try:
-        url = f"https://graph.facebook.com/v15.0/{audio_id}"
-        headers = {"Authorization": f"Bearer {ACCESS_TOKEN}"}
-        resp = requests.get(url, headers=headers)
-        resp.raise_for_status()
-        media_url = resp.json().get("url")
-
-        media_resp = requests.get(media_url, headers=headers)
-        media_resp.raise_for_status()
-        audio_path = "/tmp/audio.ogg"
-        with open(audio_path, "wb") as f:
-            f.write(media_resp.content)
-
-        audio = AudioSegment.from_file(audio_path)
-        duration_sec = len(audio) / 1000
-        logger.info(f"⏱️ Длительность аудио: {duration_sec:.1f} секунд")
-        if duration_sec > 60:
-            logger.warning("⚠️ Аудио превышает 60 секунд")
-            return "Пожалуйста, пришлите голосовое сообщение не длиннее 1 минуты."
-
-        with open(audio_path, "rb") as audio_file:
-            transcript = client.audio.transcriptions.create(
-                model="whisper-1",
-                file=audio_file,
-                response_format="text"
-            )
-        logger.info(f"📝 Распознано: {transcript}")
-        return transcript.strip()
-
-    except Exception as e:
-        logger.error(f"❌ Ошибка транскрибации аудио: {e}")
-        return None
 
 def get_ai_response(prompt):
     start = time.time()
@@ -274,3 +274,4 @@ def handle_status(status):
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
+
