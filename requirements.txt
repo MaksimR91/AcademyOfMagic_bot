@@ -1,6 +1,7 @@
 flask
 gunicorn
 requests
+pydub
 boto3==1.38.35
 openai>=1.14.2
 psutil

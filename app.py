@@ -5,7 +5,9 @@ import os
 import gc
 import psutil
 import time
+import threading
 from openai import OpenAI, RateLimitError, APIError, Timeout, AuthenticationError
+from pydub import AudioSegment
 
 app = Flask(__name__)
 
@@ -39,7 +41,7 @@ def cleanup_temp_files():
         if fname.endswith((".wav", ".mp3", ".ogg")):
             try:
                 os.remove(os.path.join(tmp_path, fname))
-                logger.info(f"🧹 Удален временный файл: {fname}")
+                logger.info(f"🥹 Удален временный файл: {fname}")
             except Exception as e:
                 logger.warning(f"❌ Ошибка удаления файла {fname}: {e}")
 
@@ -97,23 +99,32 @@ def handle_message(message, phone_number_id, bot_display_number, contacts):
     normalized_number = normalize_for_meta(from_number)
     name = contacts[0].get("profile", {}).get("name") if contacts else "друг"
 
-    text = None
-
     if message.get("type") == "text":
         text = message.get("text", {}).get("body", "").strip()
-    elif message.get("type") == "audio":
-        audio_id = message["audio"]["id"]
-        logger.info(f"🎤 Получен голосовой файл, media ID: {audio_id}")
-        text = transcribe_voice_message(audio_id)
+        process_text_message(text, normalized_number, phone_number_id, name)
 
+    elif message.get("type") == "audio":
+        logger.info("🎤 Аудио передаётся на фон для обработки")
+        threading.Thread(target=handle_audio_async, args=(message, phone_number_id, normalized_number, name)).start()
+
+def handle_audio_async(message, phone_number_id, normalized_number, name):
+    try:
+        audio_id = message["audio"]["id"]
+        logger.info(f"🎧 Обработка голосового файла, media ID: {audio_id}")
+        text = transcribe_voice_message(audio_id)
+        if not text:
+            return
+        process_text_message(text, normalized_number, phone_number_id, name)
+    except Exception as e:
+        logger.error(f"❌ Ошибка фоновой обработки аудио: {e}")
+
+def process_text_message(text, normalized_number, phone_number_id, name):
     if not text:
-        logger.info("❌ Сообщение не содержит текста — пропущено")
         return
 
     logger.info(f"📬 Сообщение от {normalized_number}: {text}")
 
     if text.lower() in SKIP_AI_PHRASES:
-        logger.info("🗕️ Сообщение в списке фильтрации, OpenAI не вызывается")
         return
 
     if len(text) > 500:
@@ -161,6 +172,13 @@ def transcribe_voice_message(audio_id):
         audio_path = "/tmp/audio.ogg"
         with open(audio_path, "wb") as f:
             f.write(media_resp.content)
+
+        audio = AudioSegment.from_file(audio_path)
+        duration_sec = len(audio) / 1000
+        logger.info(f"⏱️ Длительность аудио: {duration_sec:.1f} секунд")
+        if duration_sec > 60:
+            logger.warning("⚠️ Аудио превышает 60 секунд")
+            return "Пожалуйста, пришлите голосовое сообщение не длиннее 1 минуты."
 
         with open(audio_path, "rb") as audio_file:
             transcript = client.audio.transcriptions.create(
@@ -256,4 +274,3 @@ def handle_status(status):
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
-
