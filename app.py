@@ -5,11 +5,13 @@ import time
 import threading
 import logging
 from datetime import datetime
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template_string, abort
 from logger import logger
 import requests
 from openai import OpenAI, RateLimitError, APIError, Timeout, AuthenticationError
 from pydub import AudioSegment
+
+from token_manager import get_token, save_token
 
 # ======= ЛОКАЛЬНЫЙ ЛОГГЕР ДЛЯ ПЕРВОГО ЭТАПА ЗАПУСКА (если основной не сработает) ========
 os.makedirs("tmp", exist_ok=True)
@@ -22,7 +24,6 @@ logging.debug("🟢 app.py импортирован")
 
 app = Flask(__name__)
 
-ACCESS_TOKEN = "EAAIdbZCyeyLoBO5BZAlRlbuXX987hhv1NPMDoC5ZAcCKcNvYxo0qPMmbvxZC3zcCIGsL5MGKWcIIWBJGbTInpP3LO68GTZClBMSJPhN2s809ZBJgBBSCH8gq0QWLCaOg6M6CAHYdneKLJvntmegRYngOpsmtoXuk5BYZCSdzaP1ysKFGgyGNAP88ePfkfeU68QRriltmgOnzHVgKvXhlKri1l8NnoW3I9erx81OL1DU6LxThDUA6xDZAM6x6jIXNEQZDZD"
 API_URL = "https://graph.facebook.com/v15.0/{phone_number_id}/messages"
 VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
 openai_api_key = os.getenv("OPENAI_APIKEY")
@@ -31,6 +32,37 @@ client = OpenAI(api_key=openai_api_key)
 logger.info(f"🔐 OpenAI API key начинается на: {openai_api_key[:5]}..., длина: {len(openai_api_key)}")
 
 SKIP_AI_PHRASES = ["ок", "спасибо", "понятно", "ясно", "пока", "привет", "здрасте", "да", "нет"]
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
+
+form_template = """
+<!DOCTYPE html>
+<html>
+<head><title>Обновить токен</title></head>
+<body>
+  <h2>Обновление токена WhatsApp</h2>
+  {% if message %}<p style=\"color:green\">{{ message }}</p>{% endif %}
+  <form method=\"POST\">
+    Пароль: <input type=\"password\" name=\"password\"><br><br>
+    Новый токен:<br>
+    <textarea name=\"token\" rows=\"6\" cols=\"80\"></textarea><br><br>
+    <input type=\"submit\" value=\"Сохранить\">
+  </form>
+</body>
+</html>
+"""
+
+@app.route("/admin/token", methods=["GET", "POST"])
+def update_token():
+    message = None
+    if request.method == "POST":
+        password = request.form.get("password")
+        if password != ADMIN_PASSWORD:
+            abort(403)
+        token = request.form.get("token", "").strip()
+        if token:
+            save_token(token)
+            message = "✅ Токен успешно сохранён!"
+    return render_template_string(form_template, message=message)
 
 def log_memory_usage():
     process = psutil.Process()
@@ -119,7 +151,7 @@ def handle_audio_async(message, phone_number_id, normalized_number, name):
         logger.info(f"🎿 Обработка голосового файла, media ID: {audio_id}")
 
         url = f"https://graph.facebook.com/v15.0/{audio_id}"
-        headers = {"Authorization": f"Bearer {ACCESS_TOKEN}"}
+        headers = {"Authorization": f"Bearer {get_token()}"}
         resp = requests.get(url, headers=headers, timeout=10)
         resp.raise_for_status()
         media_url = resp.json().get("url")
@@ -233,7 +265,7 @@ def normalize_for_meta(number):
 def send_text_message(phone_number_id, to, text):
     url = API_URL.format(phone_number_id=phone_number_id)
     headers = {
-        "Authorization": f"Bearer {ACCESS_TOKEN}",
+        "Authorization": f"Bearer {get_token()}",
         "Content-Type": "application/json"
     }
     payload = {
@@ -249,7 +281,7 @@ def send_text_message(phone_number_id, to, text):
 def send_template_message(phone_number_id, to, template_name, variables):
     url = API_URL.format(phone_number_id=phone_number_id)
     headers = {
-        "Authorization": f"Bearer {ACCESS_TOKEN}",
+        "Authorization": f"Bearer {get_token()}",
         "Content-Type": "application/json"
     }
     payload = {
@@ -282,3 +314,4 @@ if __name__ == '__main__':
         app.run(host='0.0.0.0', port=5000)
     except Exception as e:
         logging.exception("💥 Ошибка при запуске Flask-приложения")
+
