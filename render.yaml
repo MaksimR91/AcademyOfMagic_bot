@@ -3,5 +3,5 @@ sservices:
     name: academyofmagic-bot
     runtime: python
     buildCommand: ./build.sh
-    startCommand: gunicorn app:app --timeout 60
+    startCommand: gunicorn app:app --timeout 60 --max-requests 100 --max-requests-jitter 20
     plan: free

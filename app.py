@@ -21,12 +21,12 @@ logger.info(f"🔐 OpenAI API key начинается на: {openai_api_key[:5]
 
 SKIP_AI_PHRASES = ["ок", "спасибо", "понятно", "ясно", "пока", "привет", "здрасте", "да", "нет"]
 
-@app.after_request
-def after_request_cleanup(response):
-    gc.collect()
-    log_memory_usage()
-    cleanup_temp_files()
-    return response
+# @app.after_request
+# def after_request_cleanup(response):
+#     gc.collect()
+#     log_memory_usage()
+#     cleanup_temp_files()
+#     return response
 
 def log_memory_usage():
     process = psutil.Process()
@@ -47,10 +47,12 @@ def cleanup_temp_files():
 
 @app.route('/', methods=['GET'])
 def home():
+    logger.info("🏠 Запрос GET /")
     return "Сервер работает!"
 
 @app.route("/ping")
 def ping():
+    logger.info("🔔 Запрос PING")
     return "OK", 200
 
 @app.route('/webhook', methods=['GET', 'POST'])
@@ -105,27 +107,25 @@ def handle_message(message, phone_number_id, bot_display_number, contacts):
 
     elif message.get("type") == "audio":
         logger.info("🎤 Аудио передаётся на фон для обработки")
-        threading.Thread(target=handle_audio_async, args=(message, phone_number_id, normalized_number, name)).start()
+        threading.Thread(target=handle_audio_async, args=(message, phone_number_id, normalized_number, name), daemon=True).start()
 
 def handle_audio_async(message, phone_number_id, normalized_number, name):
     try:
         audio_id = message["audio"]["id"]
-        logger.info(f"🎧 Обработка голосового файла, media ID: {audio_id}")
+        logger.info(f"🎿 Обработка голосового файла, media ID: {audio_id}")
 
-        # Получаем URL и скачиваем аудиофайл
         url = f"https://graph.facebook.com/v15.0/{audio_id}"
         headers = {"Authorization": f"Bearer {ACCESS_TOKEN}"}
-        resp = requests.get(url, headers=headers)
+        resp = requests.get(url, headers=headers, timeout=10)
         resp.raise_for_status()
         media_url = resp.json().get("url")
 
-        media_resp = requests.get(media_url, headers=headers)
+        media_resp = requests.get(media_url, headers=headers, timeout=30)
         media_resp.raise_for_status()
         audio_path = "/tmp/audio.ogg"
         with open(audio_path, "wb") as f:
             f.write(media_resp.content)
 
-        # Проверяем длительность
         audio = AudioSegment.from_file(audio_path)
         duration_sec = len(audio) / 1000
         logger.info(f"⏱️ Длительность аудио: {duration_sec:.1f} секунд")
@@ -136,7 +136,6 @@ def handle_audio_async(message, phone_number_id, normalized_number, name):
                               "Пожалуйста, пришлите голосовое сообщение не длиннее 1 минуты.")
             return
 
-        # Транскрибация
         with open(audio_path, "rb") as audio_file:
             transcript = client.audio.transcriptions.create(
                 model="whisper-1",
@@ -274,4 +273,3 @@ def handle_status(status):
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
-
