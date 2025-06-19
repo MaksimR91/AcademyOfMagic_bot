@@ -38,18 +38,26 @@ logger.info(f"🔐 OpenAI API key начинается на: {openai_api_key[:5]
 SKIP_AI_PHRASES = ["ок", "спасибо", "понятно", "ясно", "пока", "привет", "здрасте", "да", "нет"]
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
 
+# ... (всё то же самое до form_template)
+
 form_template = """
 <!DOCTYPE html>
 <html>
 <head><title>Обновить токен</title></head>
 <body>
   <h2>Обновление токена WhatsApp</h2>
-  {% if message %}<p style=\"color:green\">{{ message }}</p>{% endif %}
-  <form method=\"POST\">
-    Пароль: <input type=\"password\" name=\"password\"><br><br>
+  {% if message %}<p style="color:green">{{ message }}</p>{% endif %}
+  {% if error %}<p style="color:red">{{ error }}</p>{% endif %}
+  <form method="POST">
+    Пароль: <input type="password" name="password"><br><br>
     Новый токен:<br>
-    <textarea name=\"token\" rows=\"6\" cols=\"80\"></textarea><br><br>
-    <input type=\"submit\" value=\"Сохранить\">
+    <textarea name="token" rows="6" cols="80"></textarea><br><br>
+    <input type="submit" value="Сохранить">
+  </form>
+  <br>
+  <form method="GET">
+    <input type="hidden" name="check_token" value="1">
+    <input type="submit" value="Проверить токен">
   </form>
 </body>
 </html>
@@ -58,6 +66,8 @@ form_template = """
 @app.route("/admin/token", methods=["GET", "POST"])
 def update_token():
     message = None
+    error = None
+
     if request.method == "POST":
         password = request.form.get("password")
         if password != ADMIN_PASSWORD:
@@ -66,7 +76,22 @@ def update_token():
         if token:
             save_token(token)
             message = "✅ Токен успешно сохранён!"
-    return render_template_string(form_template, message=message)
+
+    # ✅ ДОБАВЛЕНО: проверка токена через GET
+    elif request.method == "GET" and request.args.get("check_token") == "1":
+        try:
+            url = f"https://graph.facebook.com/oauth/access_token_info?client_id={META_APP_ID}&client_secret={META_APP_SECRET}&access_token={get_token()}"
+            resp = requests.get(url, timeout=10)
+            if resp.status_code != 200:
+                error = "❌ Токен недействителен! Арсений уведомлён."
+                send_text_message(PHONE_NUMBER_ID, ADMIN_WA_ID, "❗️Токен WhatsApp недействителен. Зайдите в админку и обновите его.")
+            else:
+                message = "✅ Токен действителен!"
+        except Exception as e:
+            error = f"⚠️ Ошибка при проверке токена: {e}"
+
+    return render_template_string(form_template, message=message, error=error)
+
 
 def check_token_validity():
     url = f"https://graph.facebook.com/oauth/access_token_info?client_id={META_APP_ID}&client_secret={META_APP_SECRET}&access_token={get_token()}"
