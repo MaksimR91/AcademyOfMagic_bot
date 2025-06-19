@@ -1,13 +1,24 @@
-from flask import Flask, request, jsonify
-from logger import logger
-import requests
 import os
 import gc
 import psutil
 import time
 import threading
+import logging
+from datetime import datetime
+from flask import Flask, request, jsonify
+from logger import logger
+import requests
 from openai import OpenAI, RateLimitError, APIError, Timeout, AuthenticationError
 from pydub import AudioSegment
+
+# ======= ЛОКАЛЬНЫЙ ЛОГГЕР ДЛЯ ПЕРВОГО ЭТАПА ЗАПУСКА (если основной не сработает) ========
+os.makedirs("tmp", exist_ok=True)
+logging.basicConfig(
+    filename=f"tmp/app_start_{datetime.now():%Y-%m-%d}.log",
+    level=logging.DEBUG,
+    format='%(asctime)s [%(levelname)s] %(message)s'
+)
+logging.debug("🟢 app.py импортирован")
 
 app = Flask(__name__)
 
@@ -20,13 +31,6 @@ client = OpenAI(api_key=openai_api_key)
 logger.info(f"🔐 OpenAI API key начинается на: {openai_api_key[:5]}..., длина: {len(openai_api_key)}")
 
 SKIP_AI_PHRASES = ["ок", "спасибо", "понятно", "ясно", "пока", "привет", "здрасте", "да", "нет"]
-
-# @app.after_request
-# def after_request_cleanup(response):
-#     gc.collect()
-#     log_memory_usage()
-#     cleanup_temp_files()
-#     return response
 
 def log_memory_usage():
     process = psutil.Process()
@@ -272,4 +276,9 @@ def handle_status(status):
     logger.info("📥 Статус: %s", status)
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    logging.debug("🚀 Запуск Flask-приложения через __main__")
+    try:
+        logger.info("📡 Старт сервера Flask...")
+        app.run(host='0.0.0.0', port=5000)
+    except Exception as e:
+        logging.exception("💥 Ошибка при запуске Flask-приложения")
