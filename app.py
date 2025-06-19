@@ -99,12 +99,6 @@ def check_token_validity():
         logger.warning(f"⚠️ Ошибка при проверке токена: {e}")
         send_telegram_alert(f"⚠️ Ошибка при проверке токена WhatsApp: {e}")
 
-# Запуск цикла проверки токена
-start_token_check_loop = lambda: threading.Thread(target=lambda: (check_token_validity(), time.sleep(86400)), daemon=True).start()
-start_token_check_loop()
-
-# --- Остальной код app.py без изменений... (уже есть у тебя, можно подставить в ниже)
-
 
 def start_token_check_loop():
     def loop():
