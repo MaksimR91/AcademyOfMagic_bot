@@ -13,7 +13,7 @@ from pydub import AudioSegment
 
 from token_manager import get_token, save_token
 
-# ======= ЛОКАЛЬНЫЙ ЛОГГЕР ДЛЯ ПЕРВОГО ЭТАПА ЗАПУСКА (если основной не сработает) ========
+# ======= ЛОКАЛЬНЫЙ ЛОГГЕР ДЛЯ ПЕРВОГО ЭТАПА ЗАПУСКА ========
 os.makedirs("tmp", exist_ok=True)
 logging.basicConfig(
     filename=f"tmp/app_start_{datetime.now():%Y-%m-%d}.log",
@@ -27,6 +27,10 @@ app = Flask(__name__)
 API_URL = "https://graph.facebook.com/v15.0/{phone_number_id}/messages"
 VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
 openai_api_key = os.getenv("OPENAI_APIKEY")
+META_APP_ID = os.getenv("META_APP_ID")
+META_APP_SECRET = os.getenv("META_APP_SECRET")
+ADMIN_WA_ID = os.getenv("ADMIN_WA_ID")
+PHONE_NUMBER_ID = os.getenv("PHONE_NUMBER_ID")
 
 client = OpenAI(api_key=openai_api_key)
 logger.info(f"🔐 OpenAI API key начинается на: {openai_api_key[:5]}..., длина: {len(openai_api_key)}")
@@ -64,6 +68,27 @@ def update_token():
             message = "✅ Токен успешно сохранён!"
     return render_template_string(form_template, message=message)
 
+def check_token_validity():
+    url = f"https://graph.facebook.com/oauth/access_token_info?client_id={META_APP_ID}&client_secret={META_APP_SECRET}&access_token={get_token()}"
+    try:
+        resp = requests.get(url, timeout=10)
+        if resp.status_code != 200:
+            logger.warning("❌ Токен недействителен! Сообщаем Арсению...")
+            send_text_message(PHONE_NUMBER_ID, ADMIN_WA_ID, "❗️Токен WhatsApp недействителен. Зайдите в админку и обновите его.")
+        else:
+            logger.info("✅ Токен действителен")
+    except Exception as e:
+        logger.warning(f"⚠️ Ошибка при проверке токена: {e}")
+
+def start_token_check_loop():
+    def loop():
+        while True:
+            check_token_validity()
+            time.sleep(86400)  # раз в сутки
+    threading.Thread(target=loop, daemon=True).start()
+
+# запуск проверки токена при старте
+start_token_check_loop()
 def log_memory_usage():
     process = psutil.Process()
     mem_mb = process.memory_info().rss / 1024 / 1024
@@ -314,4 +339,3 @@ if __name__ == '__main__':
         app.run(host='0.0.0.0', port=5000)
     except Exception as e:
         logging.exception("💥 Ошибка при запуске Flask-приложения")
-
