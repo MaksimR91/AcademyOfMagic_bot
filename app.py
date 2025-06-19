@@ -29,8 +29,26 @@ VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
 openai_api_key = os.getenv("OPENAI_APIKEY")
 META_APP_ID = os.getenv("META_APP_ID")
 META_APP_SECRET = os.getenv("META_APP_SECRET")
-ADMIN_WA_ID = os.getenv("ADMIN_WA_ID")
 PHONE_NUMBER_ID = os.getenv("PHONE_NUMBER_ID")
+
+# ✅ TELEGRAM
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
+
+def send_telegram_alert(text):
+    if not TELEGRAM_TOKEN or not TELEGRAM_CHAT_ID:
+        logger.warning("⚠️ TELEGRAM_TOKEN или TELEGRAM_CHAT_ID не заданы")
+        return
+    try:
+        url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+        payload = {"chat_id": TELEGRAM_CHAT_ID, "text": text}
+        resp = requests.post(url, json=payload, timeout=10)
+        if resp.status_code == 200:
+            logger.info("📢 Telegram-уведомление отправлено")
+        else:
+            logger.warning(f"❌ Ошибка Telegram: {resp.status_code} {resp.text}")
+    except Exception as e:
+        logger.error(f"💥 Исключение при отправке Telegram-сообщения: {e}")
 
 client = OpenAI(api_key=openai_api_key)
 logger.info(f"🔐 OpenAI API key начинается на: {openai_api_key[:5]}..., длина: {len(openai_api_key)}")
@@ -38,26 +56,18 @@ logger.info(f"🔐 OpenAI API key начинается на: {openai_api_key[:5]
 SKIP_AI_PHRASES = ["ок", "спасибо", "понятно", "ясно", "пока", "привет", "здрасте", "да", "нет"]
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
 
-# ... (всё то же самое до form_template)
-
 form_template = """
 <!DOCTYPE html>
 <html>
 <head><title>Обновить токен</title></head>
 <body>
   <h2>Обновление токена WhatsApp</h2>
-  {% if message %}<p style="color:green">{{ message }}</p>{% endif %}
-  {% if error %}<p style="color:red">{{ error }}</p>{% endif %}
-  <form method="POST">
-    Пароль: <input type="password" name="password"><br><br>
+  {% if message %}<p style=\"color:green\">{{ message }}</p>{% endif %}
+  <form method=\"POST\">
+    Пароль: <input type=\"password\" name=\"password\"><br><br>
     Новый токен:<br>
-    <textarea name="token" rows="6" cols="80"></textarea><br><br>
-    <input type="submit" value="Сохранить">
-  </form>
-  <br>
-  <form method="GET">
-    <input type="hidden" name="check_token" value="1">
-    <input type="submit" value="Проверить токен">
+    <textarea name=\"token\" rows=\"6\" cols=\"80\"></textarea><br><br>
+    <input type=\"submit\" value=\"Сохранить\">
   </form>
 </body>
 </html>
@@ -66,8 +76,6 @@ form_template = """
 @app.route("/admin/token", methods=["GET", "POST"])
 def update_token():
     message = None
-    error = None
-
     if request.method == "POST":
         password = request.form.get("password")
         if password != ADMIN_PASSWORD:
@@ -76,34 +84,27 @@ def update_token():
         if token:
             save_token(token)
             message = "✅ Токен успешно сохранён!"
-
-    # ✅ ДОБАВЛЕНО: проверка токена через GET
-    elif request.method == "GET" and request.args.get("check_token") == "1":
-        try:
-            url = f"https://graph.facebook.com/oauth/access_token_info?client_id={META_APP_ID}&client_secret={META_APP_SECRET}&access_token={get_token()}"
-            resp = requests.get(url, timeout=10)
-            if resp.status_code != 200:
-                error = "❌ Токен недействителен! Арсений уведомлён."
-                send_text_message(PHONE_NUMBER_ID, ADMIN_WA_ID, "❗️Токен WhatsApp недействителен. Зайдите в админку и обновите его.")
-            else:
-                message = "✅ Токен действителен!"
-        except Exception as e:
-            error = f"⚠️ Ошибка при проверке токена: {e}"
-
-    return render_template_string(form_template, message=message, error=error)
-
+    return render_template_string(form_template, message=message)
 
 def check_token_validity():
     url = f"https://graph.facebook.com/oauth/access_token_info?client_id={META_APP_ID}&client_secret={META_APP_SECRET}&access_token={get_token()}"
     try:
         resp = requests.get(url, timeout=10)
         if resp.status_code != 200:
-            logger.warning("❌ Токен недействителен! Сообщаем Арсению...")
-            send_text_message(PHONE_NUMBER_ID, ADMIN_WA_ID, "❗️Токен WhatsApp недействителен. Зайдите в админку и обновите его.")
+            logger.warning("❌ Токен недействителен! Сообщаем в Telegram...")
+            send_telegram_alert("❗️Токен WhatsApp недействителен. Зайдите в админку и обновите его.")
         else:
             logger.info("✅ Токен действителен")
     except Exception as e:
         logger.warning(f"⚠️ Ошибка при проверке токена: {e}")
+        send_telegram_alert(f"⚠️ Ошибка при проверке токена WhatsApp: {e}")
+
+# Запуск цикла проверки токена
+start_token_check_loop = lambda: threading.Thread(target=lambda: (check_token_validity(), time.sleep(86400)), daemon=True).start()
+start_token_check_loop()
+
+# --- Остальной код app.py без изменений... (уже есть у тебя, можно подставить в ниже)
+
 
 def start_token_check_loop():
     def loop():
