@@ -113,7 +113,7 @@ def update_token():
             save_token_to_supabase(token)
             WHATSAPP_TOKEN = token
     check_token_validity()
-            message = "✅ Токен успешно сохранён!"
+    message = "✅ Токен успешно сохранён!"
     return render_template_string(form_template, message=message)
 
 def get_token():
