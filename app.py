@@ -121,9 +121,9 @@ def get_token():
 def check_token_validity():
     token = get_token()
     logger.info(f"🔍 Проверка токена: начинается на {token[:8]}..., длина: {len(token)}")
-    url = f"https://graph.facebook.com/oauth/access_token_info?client_id={META_APP_ID}&client_secret={META_APP_SECRET}&access_token={token}"
+    test_url = f"https://graph.facebook.com/v15.0/me?access_token={token}"
     try:
-        resp = requests.get(url, timeout=10)
+        resp = requests.get(test_url, timeout=10)
         logger.info(f"📡 Meta ответ: {resp.status_code} {resp.text}")
         if resp.status_code != 200:
             logger.warning("❌ Токен недействителен! Сообщаем в Telegram...")
@@ -144,6 +144,7 @@ def start_token_check_loop():
 
 # запуск проверки токена при старте
 start_token_check_loop()
+
 def cleanup_temp_files():
     tmp_path = "/tmp"
     if os.path.exists(tmp_path):
