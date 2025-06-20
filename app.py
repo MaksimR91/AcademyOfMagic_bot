@@ -11,7 +11,30 @@ import requests
 from openai import OpenAI, RateLimitError, APIError, Timeout, AuthenticationError
 from pydub import AudioSegment
 
-from token_manager import get_token, save_token
+# Supabase config
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_API_KEY = os.getenv("SUPABASE_API_KEY")
+SUPABASE_TABLE_NAME = "tokens"
+
+SUPABASE_HEADERS = {
+    "apikey": SUPABASE_API_KEY,
+    "Authorization": f"Bearer {SUPABASE_API_KEY}",
+    "Content-Type": "application/json"
+}
+
+def load_token_from_supabase():
+    url = f"{SUPABASE_URL}/rest/v1/{SUPABASE_TABLE_NAME}?select=token&order=updated_at.desc&limit=1"
+    response = requests.get(url, headers=SUPABASE_HEADERS)
+    data = response.json()
+    if data:
+        return data[0]["token"]
+    return ""
+
+def save_token_to_supabase(token: str):
+    url = f"{SUPABASE_URL}/rest/v1/{SUPABASE_TABLE_NAME}"
+    payload = {"token": token}
+    response = requests.post(url, json=payload, headers=SUPABASE_HEADERS)
+    return response.status_code == 201
 
 # ======= ЛОКАЛЬНЫЙ ЛОГГЕР ДЛЯ ПЕРВОГО ЭТАПА ЗАПУСКА ========
 os.makedirs("tmp", exist_ok=True)
@@ -56,6 +79,9 @@ logger.info(f"🔐 OpenAI API key начинается на: {openai_api_key[:5]
 SKIP_AI_PHRASES = ["ок", "спасибо", "понятно", "ясно", "пока", "привет", "здрасте", "да", "нет"]
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
 
+WHATSAPP_TOKEN = load_token_from_supabase()
+logger.info(f"🔍 Загружен токен из Supabase: начинается на {WHATSAPP_TOKEN[:8]}..., длина: {len(WHATSAPP_TOKEN)}")
+
 form_template = """
 <!DOCTYPE html>
 <html>
@@ -75,17 +101,22 @@ form_template = """
 
 @app.route("/admin/token", methods=["GET", "POST"])
 def update_token():
+    global WHATSAPP_TOKEN
     message = None
     if request.method == "POST":
         password = request.form.get("password")
         if password != ADMIN_PASSWORD:
             abort(403)
         token = request.form.get("token", "").strip()
-        logger.info(f"📥 Токен из формы (repr): {repr(token)}")  # 🔍 Вставь эту строку
+        logger.info(f"📥 Токен из формы (repr): {repr(token)}")
         if token:
-            save_token(token)
+            save_token_to_supabase(token)
+            WHATSAPP_TOKEN = token
             message = "✅ Токен успешно сохранён!"
     return render_template_string(form_template, message=message)
+
+def get_token():
+    return WHATSAPP_TOKEN
 
 def check_token_validity():
     token = get_token()
