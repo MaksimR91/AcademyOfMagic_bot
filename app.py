@@ -40,10 +40,12 @@ def save_token_to_supabase(token: str):
 os.makedirs("tmp", exist_ok=True)
 logging.basicConfig(
     filename=f"tmp/app_start_{datetime.now():%Y-%m-%d}.log",
-    level=logging.DEBUG,
+    level=logging.INFO,
     format='%(asctime)s [%(levelname)s] %(message)s'
 )
-logging.debug("🟢 app.py импортирован")
+logger = logging.getLogger("myapp")
+logger.propagate = False
+logger.info("🟢 app.py импортирован")
 
 app = Flask(__name__)
 
@@ -54,7 +56,6 @@ META_APP_ID = os.getenv("META_APP_ID")
 META_APP_SECRET = os.getenv("META_APP_SECRET")
 PHONE_NUMBER_ID = os.getenv("PHONE_NUMBER_ID")
 
-# ✅ TELEGRAM
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
@@ -78,7 +79,6 @@ logger.info(f"🔐 OpenAI API key начинается на: {openai_api_key[:5]
 
 SKIP_AI_PHRASES = ["ок", "спасибо", "понятно", "ясно", "пока", "привет", "здрасте", "да", "нет"]
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
-
 WHATSAPP_TOKEN = load_token_from_supabase()
 logger.info(f"🔍 Загружен токен из Supabase: начинается на {WHATSAPP_TOKEN[:8]}..., длина: {len(WHATSAPP_TOKEN)}")
 
@@ -144,6 +144,34 @@ def start_token_check_loop():
 
 # запуск проверки токена при старте
 start_token_check_loop()
+def cleanup_temp_files():
+    tmp_path = "/tmp"
+    if os.path.exists(tmp_path):
+        for fname in os.listdir(tmp_path):
+            if fname.endswith(('.wav', '.mp3', '.ogg')):
+                try:
+                    os.remove(os.path.join(tmp_path, fname))
+                    logger.info(f"🥹 Удален временный файл: {fname}")
+                except Exception as e:
+                    logger.warning(f"❌ Ошибка удаления файла {fname}: {e}")
+    for fname in os.listdir("tmp"):
+        if fname.startswith("app_start_") and fname.endswith(".log"):
+            try:
+                os.remove(os.path.join("tmp", fname))
+            except Exception as e:
+                logger.warning(f"❌ Ошибка удаления старого лога {fname}: {e}")
+
+def start_memory_cleanup_loop():
+    def loop():
+        while True:
+            time.sleep(600)
+            gc.collect()
+            process = psutil.Process()
+            mem_mb = process.memory_info().rss / 1024 / 1024
+            logger.info(f"🧠 Используемая память: {mem_mb:.2f} MB")
+    threading.Thread(target=loop, daemon=True).start()
+
+start_memory_cleanup_loop()
 def log_memory_usage():
     process = psutil.Process()
     mem_mb = process.memory_info().rss / 1024 / 1024
@@ -309,21 +337,26 @@ def process_text_message(text, normalized_number, phone_number_id, name):
     send_text_message(phone_number_id, normalized_number, "Привет, долбоеб мой друг! Что хотел, долбоеб мой друг!")
 
 def get_ai_response(prompt):
-    start = time.time()
-    response = client.chat.completions.create(
-        model="gpt-3.5-turbo-0125",
-        messages=[
-            {"role": "system", "content": "Ты ассистент иллюзиониста Арсения. Отвечай осмысленно, дружелюбно и кратко."},
-            {"role": "user", "content": prompt}
-        ],
-        temperature=0.7,
-        max_tokens=150,
-        timeout=20
-    )
-    end = time.time()
-    logger.info(f"🕒 Время генерации OpenAI: {end - start:.2f} сек")
-    logger.info(f"📈 Использовано токенов: {response.usage.total_tokens}")
-    return response.choices[0].message.content.strip()
+    try:
+        start = time.time()
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo-0125",
+            messages=[
+                {"role": "system", "content": "Ты ассистент иллюзиониста Арсения. Отвечай осмысленно, дружелюбно и кратко."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.7,
+            max_tokens=150,
+            timeout=20
+        )
+        end = time.time()
+        logger.info(f"🕒 Время генерации OpenAI: {end - start:.2f} сек")
+        logger.info(f"📈 Использовано токенов: {response.usage.total_tokens}")
+        return response.choices[0].message.content.strip()
+
+    except Exception as e:
+        logger.exception(f"❌ Ошибка при обращении к OpenAI: {e}")
+        return "Извините, сейчас не могу ответить. Попробуйте чуть позже."
 
 def extract_category(text):
     lowered = text.lower()
@@ -345,7 +378,7 @@ def normalize_for_meta(number):
 def send_text_message(phone_number_id, to, text):
     url = API_URL.format(phone_number_id=phone_number_id)
     headers = {
-        "Authorization": f"Bearer {get_token()}",
+        "Authorization": f"Bearer {WHATSAPP_TOKEN}",
         "Content-Type": "application/json"
     }
     payload = {
@@ -355,8 +388,8 @@ def send_text_message(phone_number_id, to, text):
         "text": {"body": text}
     }
     response = requests.post(url, headers=headers, json=payload)
-    logger.info(f"➡️ Отправка текста на {to}")
-    logger.info("API WhatsApp ответ: %s %s", response.status_code, response.text)
+    resp_text = response.text[:500] + "..." if len(response.text) > 500 else response.text
+    logger.info(f"➡️ WhatsApp {to}, статус: {response.status_code}, ответ: {resp_text}")
 
 def send_template_message(phone_number_id, to, template_name, variables):
     url = API_URL.format(phone_number_id=phone_number_id)
