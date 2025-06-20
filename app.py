@@ -81,9 +81,9 @@ def update_token():
         if password != ADMIN_PASSWORD:
             abort(403)
         token = request.form.get("token", "").strip()
+        logger.info(f"📥 Токен из формы (repr): {repr(token)}")  # 🔍 Вставь эту строку
         if token:
             save_token(token)
-            logger.info(f"💾 Сохранён токен из админки: начинается на {token[:8]}..., длина: {len(token)}")
             message = "✅ Токен успешно сохранён!"
     return render_template_string(form_template, message=message)
 
