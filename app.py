@@ -112,6 +112,7 @@ def update_token():
         if token:
             save_token_to_supabase(token)
             WHATSAPP_TOKEN = token
+    check_token_validity()
             message = "✅ Токен успешно сохранён!"
     return render_template_string(form_template, message=message)
 
@@ -139,7 +140,7 @@ def start_token_check_loop():
     def loop():
         while True:
             check_token_validity()
-            time.sleep(86400)  # раз в сутки
+            time.sleep(14400)  # раз в 4 часа
     threading.Thread(target=loop, daemon=True).start()
 
 # запуск проверки токена при старте
