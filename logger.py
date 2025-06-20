@@ -16,9 +16,9 @@ REGION_NAME = "ru-central1"
 # ==== ПАПКА ДЛЯ ЛОГОВ ====
 LOG_DIR = "logs"
 os.makedirs(LOG_DIR, exist_ok=True)
-os.makedirs("tmp", exist_ok=True)  # на случай fallback-логгера
+os.makedirs("tmp", exist_ok=True)
 
-# ==== S3 КЛИЕНТ С ТАЙМАУТОМ ====
+# ==== S3 КЛИЕНТ ====
 s3_config = Config(connect_timeout=5, read_timeout=10)
 s3_client = boto3.client(
     "s3",
@@ -28,6 +28,14 @@ s3_client = boto3.client(
     config=s3_config
 )
 
+# ==== ВСПОМОГАТЕЛЬНЫЙ ЛОГГЕР (НЕ ПРОПИШЕТСЯ В S3 ХЭНДЛЕР) ====
+logger_s3 = logging.getLogger("s3_logger")
+logger_s3.setLevel(logging.INFO)
+s3_console = logging.StreamHandler()
+s3_console.setFormatter(logging.Formatter("[%(asctime)s] [%(levelname)s] [S3] %(message)s"))
+logger_s3.addHandler(s3_console)
+logger_s3.propagate = False  # 🔒 не передавать сообщения дальше
+
 # ==== КАСТОМНЫЙ ХЭНДЛЕР ====
 class S3TimedRotatingFileHandler(TimedRotatingFileHandler):
     def doRollover(self):
@@ -36,14 +44,14 @@ class S3TimedRotatingFileHandler(TimedRotatingFileHandler):
         filename = os.path.join(LOG_DIR, f"log.{timestamp}.log")
         s3_key = f"logs/{os.path.basename(filename)}"
 
-        logging.debug(f"[DEBUG] Uploading to S3 → File: {filename} → S3 Key: {s3_key}")
+        logger_s3.info(f"Загрузка в S3: {filename} → {s3_key}")
         try:
             s3_client.upload_file(filename, BUCKET_NAME, s3_key)
-            logging.debug(f"[S3] Uploaded: {s3_key}")
+            logger_s3.info("Успешно загружено")
         except (ClientError, EndpointConnectionError, ReadTimeoutError) as e:
-            logging.warning(f"[S3 ERROR] Upload failed due to network/timeout: {e}")
+            logger_s3.warning(f"Ошибка сети/таймаут при загрузке: {e}")
         except Exception as e:
-            logging.warning(f"[S3 ERROR] Unexpected error: {e}")
+            logger_s3.exception(f"Непредвиденная ошибка при загрузке")
 
 # ==== ФОРМАТ ЛОГОВ ====
 formatter = logging.Formatter("[%(asctime)s] [%(levelname)s] %(message)s", "%Y-%m-%d %H:%M:%S")
@@ -58,38 +66,39 @@ file_handler.setFormatter(formatter)
 console_handler = logging.StreamHandler()
 console_handler.setFormatter(formatter)
 
-# ==== ИНИЦИАЛИЗАЦИЯ ЛОГГЕРА ====
+# ==== ГЛАВНЫЙ ЛОГГЕР ====
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
 logger.addHandler(file_handler)
 logger.addHandler(console_handler)
 
-# ==== РЕЗЕРВНЫЙ BASICCONFIG, ЕСЛИ ИМПОРТИРУЕТСЯ ====
+# ==== FALLBACK ====
 if not logger.hasHandlers():
     logging.basicConfig(
         filename=f"tmp/logger_{datetime.now():%Y-%m-%d}.log",
         level=logging.DEBUG,
         format='%(asctime)s [%(levelname)s] %(message)s'
     )
-    logging.debug("📦 logger.py basicConfig fallback activated")
+    logger.debug("📦 logger.py basicConfig fallback activated")
 
-# ==== ПРИНУДИТЕЛЬНАЯ ЗАГРУЗКА ====
+# ==== РУЧНАЯ ЗАГРУЗКА ====
 def upload_to_s3_manual():
     today = datetime.now().strftime("%Y-%m-%d")
     local_path = os.path.join(LOG_DIR, f"log.{today}.log")
     s3_key = f"logs/log.{today}.log"
 
-    logging.debug("🚀 Начинаем ручную загрузку в S3")
+    logger_s3.info("🚀 Ручная загрузка в S3")
     if not os.path.exists(local_path):
-        logging.warning("❗ Лог-файл отсутствует, нечего загружать")
+        logger_s3.warning("❗ Лог-файл отсутствует, нечего загружать")
         return
 
     try:
         s3_client.upload_file(local_path, BUCKET_NAME, s3_key)
-        logging.debug(f"✅ Успешно загружено в S3 как {s3_key}")
+        logger_s3.info(f"✅ Успешно загружено: {s3_key}")
     except Exception as e:
-        logging.exception("💥 Ошибка загрузки в S3")
+        logger_s3.exception("💥 Ошибка при ручной загрузке в S3")
 
 if __name__ == "__main__":
-    logging.debug("🛠 main() в logger.py выполняется")
+    logger_s3.info("▶️ main() logger.py — тест ручной загрузки")
     upload_to_s3_manual()
+
