@@ -83,13 +83,17 @@ def update_token():
         token = request.form.get("token", "").strip()
         if token:
             save_token(token)
+            logger.info(f"💾 Сохранён токен из админки: начинается на {token[:8]}..., длина: {len(token)}")
             message = "✅ Токен успешно сохранён!"
     return render_template_string(form_template, message=message)
 
 def check_token_validity():
-    url = f"https://graph.facebook.com/oauth/access_token_info?client_id={META_APP_ID}&client_secret={META_APP_SECRET}&access_token={get_token()}"
+    token = get_token()
+    logger.info(f"🔍 Проверка токена: начинается на {token[:8]}..., длина: {len(token)}")
+    url = f"https://graph.facebook.com/oauth/access_token_info?client_id={META_APP_ID}&client_secret={META_APP_SECRET}&access_token={token}"
     try:
         resp = requests.get(url, timeout=10)
+        logger.info(f"📡 Meta ответ: {resp.status_code} {resp.text}")
         if resp.status_code != 200:
             logger.warning("❌ Токен недействителен! Сообщаем в Telegram...")
             send_telegram_alert("❗️Токен WhatsApp недействителен. Зайдите в админку и обновите его.")
