@@ -7,9 +7,15 @@ TOKEN_FILE = "token.txt"
 def get_token():
     try:
         with open(TOKEN_FILE, "r") as f:
-            return f.read().strip()
-    except FileNotFoundError:
-        return None
+            token = f.read().strip()
+        from logger import logger
+        logger.info(f"📤 Токен из token.txt (repr): {repr(token)}, длина: {len(token)}")
+        return token
+    except Exception as e:
+        from logger import logger
+        logger.warning(f"❌ Ошибка чтения token.txt: {e}")
+        return ""
+
 
 def save_token(token: str):
     with open(TOKEN_FILE, "w") as f:
