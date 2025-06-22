@@ -7,6 +7,8 @@ import logging
 from datetime import datetime
 from flask import Flask, request, jsonify, render_template_string, abort
 from logger import logger
+from rollover_scheduler import start_rollover_scheduler
+start_rollover_scheduler()
 import requests
 from openai import OpenAI, RateLimitError, APIError, Timeout, AuthenticationError
 from pydub import AudioSegment
