@@ -15,9 +15,8 @@ ENDPOINT_URL = "https://storage.yandexcloud.net"
 REGION_NAME = "ru-central1"
 
 # ==== ПАПКА ДЛЯ ЛОГОВ ====
-LOG_DIR = "logs"
+LOG_DIR = "/tmp/logs"
 os.makedirs(LOG_DIR, exist_ok=True)
-os.makedirs("tmp", exist_ok=True)
 
 # ==== S3 КЛИЕНТ ====
 s3_config = Config(connect_timeout=5, read_timeout=10)
@@ -88,7 +87,7 @@ logger.addHandler(console_handler)
 # ==== FALLBACK ====
 if not logger.hasHandlers():
     logging.basicConfig(
-        filename=f"tmp/logger_{datetime.now():%Y-%m-%d}.log",
+        filename=f"/tmp/logger_{datetime.now():%Y-%m-%d}.log",
         level=logging.DEBUG,
         format='%(asctime)s [%(levelname)s] %(message)s'
     )
