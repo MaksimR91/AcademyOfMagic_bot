@@ -198,12 +198,6 @@ def home():
     logger.info("🏠 Запрос GET /")
     return "Сервер работает!"
 
-@app.route("/debug/upload-log")
-def debug_upload_log():
-    from logger import upload_to_s3_manual
-    upload_to_s3_manual()
-    return "Загрузка запущена вручную"
-
 @app.route("/ping")
 def ping():
     logger.info("🔔 Запрос PING")
