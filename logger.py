@@ -55,11 +55,24 @@ class S3TimedRotatingFileHandler(TimedRotatingFileHandler):
             logger_s3.warning("Файл не существует или пуст, загрузка в S3 пропущена")
             return
 
+        try:
+            with open(filename, 'r', encoding='utf-8') as f:
+                content = f.read()
+                logger_s3.info(f"📄 Содержимое файла перед загрузкой:\n{content}")
+        except Exception as e:
+            logger_s3.warning(f"❌ Не удалось прочитать файл перед загрузкой: {e}")
+
         logger_s3.info(f"Загрузка в S3: {filename} → {s3_key}")
         try:
             s3_client.upload_file(filename, BUCKET_NAME, s3_key)
-            print(">>> upload_file вернулся без ошибки")
             logger_s3.info(f"✅ Успешно загружено в S3: {s3_key}")
+
+            try:
+                s3_client.head_object(Bucket=BUCKET_NAME, Key=s3_key)
+                logger_s3.info("🔍 HEAD запрос: файл действительно появился в бакете")
+            except s3_client.exceptions.ClientError as e:
+                logger_s3.warning(f"❗ HEAD-запрос: файл не найден. Ошибка: {e}")
+
         except (ClientError, EndpointConnectionError, ReadTimeoutError) as e:
             logger_s3.warning(f"❌ Ошибка сети/таймаут при загрузке: {e}")
         except Exception as e:
@@ -105,9 +118,22 @@ def upload_to_s3_manual():
         return
 
     try:
+        with open(local_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+            logger_s3.info(f"📄 Содержимое файла перед загрузкой (ручная):\n{content}")
+    except Exception as e:
+        logger_s3.warning(f"❌ Не удалось прочитать файл перед ручной загрузкой: {e}")
+
+    try:
         s3_client.upload_file(local_path, BUCKET_NAME, s3_key)
-        print(">>> upload_file вернулся без ошибки (ручная загрузка)")
         logger_s3.info(f"✅ Успешно загружено вручную: {s3_key}")
+
+        try:
+            s3_client.head_object(Bucket=BUCKET_NAME, Key=s3_key)
+            logger_s3.info("🔍 HEAD запрос (ручная): файл действительно появился в бакете")
+        except s3_client.exceptions.ClientError as e:
+            logger_s3.warning(f"❗ HEAD-запрос (ручная): файл не найден. Ошибка: {e}")
+
     except Exception as e:
         logger_s3.exception("💥 Ошибка при ручной загрузке в S3")
 
