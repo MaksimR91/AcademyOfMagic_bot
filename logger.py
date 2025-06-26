@@ -39,44 +39,13 @@ logger_s3.propagate = False
 # ==== КАСТОМНЫЙ ХЭНДЛЕР ====
 class S3TimedRotatingFileHandler(TimedRotatingFileHandler):
     def doRollover(self):
+        logger_s3.info("🔄 Ротация логов (super().doRollover())")
         super().doRollover()
-        time.sleep(2)  # Подождать, пока система закроет файл
+        time.sleep(2)
 
-        yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
-        filename = os.path.join(LOG_DIR, f"log.{yesterday}.log")
-        s3_key = f"logs/log.{yesterday}.log"
-
-        file_exists = os.path.exists(filename)
-        file_size = os.path.getsize(filename) if file_exists else 0
-
-        logger_s3.info(f"Проверка файла: существует = {file_exists}, размер = {file_size} байт")
-
-        if not file_exists or file_size == 0:
-            logger_s3.warning("Файл не существует или пуст, загрузка в S3 пропущена")
-            return
-
-        try:
-            with open(filename, 'r', encoding='utf-8') as f:
-                content = f.read()
-                logger_s3.info(f"📄 Содержимое файла перед загрузкой:\n{content}")
-        except Exception as e:
-            logger_s3.warning(f"❌ Не удалось прочитать файл перед загрузкой: {e}")
-
-        logger_s3.info(f"Загрузка в S3: {filename} → {s3_key}")
-        try:
-            s3_client.upload_file(filename, BUCKET_NAME, s3_key)
-            logger_s3.info(f"✅ Успешно загружено в S3: {s3_key}")
-
-            try:
-                s3_client.head_object(Bucket=BUCKET_NAME, Key=s3_key)
-                logger_s3.info("🔍 HEAD запрос: файл действительно появился в бакете")
-            except s3_client.exceptions.ClientError as e:
-                logger_s3.warning(f"❗ HEAD-запрос: файл не найден. Ошибка: {e}")
-
-        except (ClientError, EndpointConnectionError, ReadTimeoutError) as e:
-            logger_s3.warning(f"❌ Ошибка сети/таймаут при загрузке: {e}")
-        except Exception as e:
-            logger_s3.exception("💥 Непредвиденная ошибка при загрузке в S3")
+        from rollover_scheduler import schedule_s3_upload
+        schedule_s3_upload()
+        logger_s3.info("⏳ Загрузка лога в S3 будет выполнена через 60 секунд")
 
 # ==== ФОРМАТ ЛОГОВ ====
 formatter = logging.Formatter("[%(asctime)s] [%(levelname)s] %(message)s", "%Y-%m-%d %H:%M:%S")
