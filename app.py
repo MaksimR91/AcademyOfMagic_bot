@@ -12,7 +12,7 @@ start_rollover_scheduler()
 import requests
 from openai import OpenAI
 from pydub import AudioSegment
-from utils.supabase_token import load_token_from_supabase, save_token_to_supabase
+from utils.supabase_token import load_token_from_supabase, save_token_to_supabase, ping_supabase
 from utils.upload_materials_to_meta_and_update_registry import \
         upload_materials_to_meta_and_update_registry
 import json, tempfile, textwrap
@@ -24,21 +24,8 @@ SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_API_KEY = os.getenv("SUPABASE_API_KEY")
 SUPABASE_TABLE_NAME = "tokens"
 
-SUPABASE_HEADERS = {
-    "apikey": SUPABASE_API_KEY,
-    "Authorization": f"Bearer {SUPABASE_API_KEY}",
-    "Content-Type": "application/json"
-}
-
 # ======= ЛОКАЛЬНЫЙ ЛОГГЕР ДЛЯ ПЕРВОГО ЭТАПА ЗАПУСКА ========
 os.makedirs("tmp", exist_ok=True)
-logging.basicConfig(
-    filename=f"tmp/app_start_{datetime.now():%Y-%m-%d}.log",
-    level=logging.INFO,
-    format='%(asctime)s [%(levelname)s] %(message)s'
-)
-logger = logging.getLogger("myapp")
-logger.propagate = False
 logger.info("🟢 app.py импортирован")
 
 app = Flask(__name__)
@@ -98,8 +85,16 @@ client = OpenAI(api_key=openai_api_key)
 logger.info(f"🔐 OpenAI API key начинается на: {openai_api_key[:5]}..., длина: {len(openai_api_key)}")
 
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
-WHATSAPP_TOKEN = load_token_from_supabase()
-logger.info(f"🔍 Загружен токен из Supabase: начинается на {WHATSAPP_TOKEN[:8]}..., длина: {len(WHATSAPP_TOKEN)}")
+try:
+    WHATSAPP_TOKEN = load_token_from_supabase()
+    logger.info(f"🔍 Загружен токен из Supabase: начинается на {WHATSAPP_TOKEN[:8]}..., длина: {len(WHATSAPP_TOKEN)}")
+except Exception as e:
+    logger.error(f"❌ Не удалось получить токен из Supabase: {e}")
+    WHATSAPP_TOKEN = os.getenv("WHATSAPP_TOKEN", "")
+    if WHATSAPP_TOKEN:
+        logger.warning("⚠️ Используем токен из ENV (fallback).")
+    else:
+        logger.critical("💥 Нет токена WhatsApp. Бот не сможет отвечать.")
 
 form_template = """
 <!DOCTYPE html>
@@ -180,6 +175,17 @@ def start_media_upload_loop():
 # запуск проверки токена при старте
 start_token_check_loop()
 start_media_upload_loop()
+def start_supabase_ping_loop(interval_hours: int = 12):
+    def loop():
+        while True:
+            try:
+                ping_supabase()
+            except Exception as e:
+                logger.warning(f"⚠️ Supabase ping error: {e}")
+            time.sleep(interval_hours * 3600)
+    threading.Thread(target=loop, daemon=True).start()
+
+start_supabase_ping_loop()
 
 def cleanup_temp_files():
     tmp_path = "/tmp"
@@ -350,7 +356,7 @@ def handle_media_async(message, phone_number_id, user_id):
     """
     from state.state import get_state, update_state
     from utils.check_payment_validity import validate_payment
-    import tempfile, os, requests
+    import tempfile, os
 
     media_type  = message["type"]
     media_obj   = message[media_type]
@@ -505,10 +511,8 @@ def normalize_for_meta(number):
 
 def send_text_message(phone_number_id, to, text):
     url = API_URL.format(phone_number_id=phone_number_id)
-    headers = {
-        "Authorization": f"Bearer {WHATSAPP_TOKEN}",
-        "Content-Type": "application/json"
-    }
+    headers = {"Authorization": f"Bearer {get_token()}", 
+               "Content-Type": "application/json"}
     payload = {
         "messaging_product": "whatsapp",
         "to": to,
@@ -524,9 +528,9 @@ def handle_status(status):
     logger.info("📥 Статус: %s", status)
 
 if __name__ == '__main__':
-    logging.debug("🚀 Запуск Flask-приложения через __main__")
+    logger.debug("🚀 Запуск Flask-приложения через __main__")
     try:
         logger.info("📡 Старт сервера Flask...")
         app.run(host='0.0.0.0', port=5000)
     except Exception as e:
-        logging.exception("💥 Ошибка при запуске Flask-приложения")
+        logger.exception("💥 Ошибка при запуске Flask-приложения")
