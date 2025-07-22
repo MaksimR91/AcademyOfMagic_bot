@@ -28,6 +28,20 @@ SUPABASE_TABLE_NAME = "tokens"
 os.makedirs("tmp", exist_ok=True)
 logger.info("🟢 app.py импортирован")
 
+# ─── Глушим «болтливые» библиотеки ──────────────────────────────────────────────
+NOISY_LOGGERS = ("botocore", "boto3", "urllib3", "s3transfer", "apscheduler")
+for _name in NOISY_LOGGERS:
+    _lg = logging.getLogger(_name)
+    _lg.setLevel(logging.WARNING)   # или ERROR, если совсем тишина нужна
+    _lg.propagate = False
+
+# Дополнительно для boto3 можно:
+try:
+    import boto3
+    boto3.set_stream_logger("", logging.WARNING)
+except Exception:
+    pass
+
 app = Flask(__name__)
 
 API_URL = "https://graph.facebook.com/v15.0/{phone_number_id}/messages"
