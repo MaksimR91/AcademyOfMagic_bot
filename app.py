@@ -286,6 +286,14 @@ def webhook():
 
         return jsonify({"status": "success"}), 200
 
+@app.route("/debug/mem")
+def debug_mem():
+    import psutil, gc
+    gc.collect()
+    mb = psutil.Process().memory_info().rss / 1024 / 1024
+    logger.info("🧠 (manual) %.2f MB", mb)
+    return f"{mb:.2f} MB", 200
+
 def handle_message(message, phone_number_id, bot_display_number, contacts):
     from_number = message.get("from")
 

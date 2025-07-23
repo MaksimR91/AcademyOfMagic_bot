@@ -55,14 +55,16 @@ file_handler = S3TimedRotatingFileHandler(
     os.path.join(LOG_DIR, "log"), when="midnight", interval=1, backupCount=14, encoding='utf-8'
 )
 file_handler.suffix = "%Y-%m-%d.log"
+file_handler.setLevel(logging.INFO)
 file_handler.setFormatter(formatter)
 
 console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.WARNING)  # чтоб не флудило в Render
 console_handler.setFormatter(formatter)
 
 # ==== ГЛАВНЫЙ ЛОГГЕР ====
 logger = logging.getLogger()
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 logger.addHandler(file_handler)
 logger.addHandler(console_handler)
 
