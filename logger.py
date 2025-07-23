@@ -57,18 +57,12 @@ file_handler.suffix = "%Y-%m-%d.log"
 file_handler.setLevel(logging.INFO)
 file_handler.setFormatter(formatter)
 
-console_handler = logging.StreamHandler()
-console_handler.set_name("render_console")          # метка, чтобы не добавлять второй раз
-console_handler.setLevel(logging.INFO)
-console_handler.setFormatter(formatter)
+# Консольный хэндлер нам больше не нужен в root: gunicorn пишет сам.
+console_handler = None
 
 # ==== ГЛАВНЫЙ ЛОГГЕР ====
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
-
-# Добавляем файловый хэндлер, если его ещё нет
-if not any(isinstance(h, S3TimedRotatingFileHandler) for h in logger.handlers):
-    logger.addHandler(file_handler)
 
 # Добавляем консольный хэндлер по имени
 if not any(getattr(h, "name", "") == "render_console" for h in logger.handlers):

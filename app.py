@@ -5,7 +5,7 @@ import time
 import threading
 import logging
 from datetime import datetime
-from flask import Flask, request, jsonify, render_template_string, abort, current_app
+from flask import Flask, request, jsonify, render_template_string, abort
 from logger import logger
 from rollover_scheduler import start_rollover_scheduler
 start_rollover_scheduler()
@@ -44,25 +44,13 @@ except Exception:
 
 app = Flask(__name__)
 
-import sys
-gunicorn_err = logging.getLogger("gunicorn.error")
-
-# пробрасываем gunicorn handlers в наш root и flask
-for h in gunicorn_err.handlers:
-    logger.addHandler(h)          # root -> Render
-    app.logger.addHandler(h)      # flask -> Render
-
-logger.setLevel(logging.INFO)
-app.logger.setLevel(logging.INFO)
-
-# чтобы наверняка все шло в stdout
-for h in gunicorn_err.handlers:
-    if hasattr(h, "stream"):
-        h.stream = sys.stdout
-
-# (опционально) отключаем propagate, чтобы не было дублей
-logger.propagate = False
-app.logger.propagate = False
+# --- Настройка логгера Flask, чтобы не было дублей ---
+flask_log = app.logger
+flask_log.handlers.clear()          # чистим дефолтные
+flask_log.setLevel(logging.INFO)
+# Разрешаем всплытие до родителя (root) — попадёт в файл.
+flask_log.propagate = True
+# НИЧЕГО не добавляем вручную из gunicorn.error — gunicorn сам пишет в консоль.
 
 API_URL = "https://graph.facebook.com/v15.0/{phone_number_id}/messages"
 VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
@@ -239,15 +227,14 @@ def cleanup_temp_files():
                 logger.warning(f"❌ Ошибка удаления старого лога {fname}: {e}")
 
 def start_memory_cleanup_loop():
-    guni = logging.getLogger("gunicorn.error")  # на всякий
-
     def loop():
         while True:
             time.sleep(600)
             gc.collect()
             mb = psutil.Process().memory_info().rss / 1024 / 1024
             msg = f"🧠 Использованная память {mb:.2f} MB"
-            logger.info(msg)
+            # логируем ОДИН раз — через flask_log (уйдёт и в файл, и в консоль)
+            app.logger.info(msg)
     threading.Thread(target=loop, daemon=True).start()
 
 start_memory_cleanup_loop()
@@ -314,7 +301,7 @@ def debug_mem():
     gc.collect()
     mb = psutil.Process().memory_info().rss / 1024 / 1024
     msg = f"🧠 (manual) {mb:.2f} MB"
-    logger.info(msg)            # в файл и в Render (через добавленный хэндлер)
+    app.logger.info(msg)        # один вызов — без дублей
     return f"{mb:.2f} MB", 200
 
 def handle_message(message, phone_number_id, bot_display_number, contacts):
