@@ -49,27 +49,25 @@ class S3TimedRotatingFileHandler(TimedRotatingFileHandler):
 # ==== ФОРМАТ ЛОГОВ ====
 formatter = logging.Formatter("[%(asctime)s] [%(levelname)s] %(message)s", "%Y-%m-%d %H:%M:%S")
 
-# ==== ХЭНДЛЕРЫ ====
+# ==== ХЭНДЛЕРЫ (только файл) ====
 file_handler = S3TimedRotatingFileHandler(
-    os.path.join(LOG_DIR, "log"), when="midnight", interval=1, backupCount=14, encoding='utf-8'
+    os.path.join(LOG_DIR, "log"), when="midnight", interval=1,
+    backupCount=14, encoding="utf-8"
 )
 file_handler.suffix = "%Y-%m-%d.log"
 file_handler.setLevel(logging.INFO)
 file_handler.setFormatter(formatter)
 
-# Консольный хэндлер нам больше не нужен в root: gunicorn пишет сам.
-console_handler = None
-
 # ==== ГЛАВНЫЙ ЛОГГЕР ====
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-# Добавляем консольный хэндлер по имени
-if not any(getattr(h, "name", "") == "render_console" for h in logger.handlers):
-    logger.addHandler(console_handler)
+# Добавляем файловый хэндлер, если его ещё нет
+if not any(isinstance(h, S3TimedRotatingFileHandler) for h in logger.handlers):
+    logger.addHandler(file_handler)
 
 # ==== FALLBACK ====
-if not logger.hasHandlers():
+if not logger.handlers:
     logging.basicConfig(
         filename=f"/tmp/logger_{datetime.now():%Y-%m-%d}.log",
         level=logging.DEBUG,

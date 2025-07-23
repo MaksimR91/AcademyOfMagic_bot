@@ -44,13 +44,12 @@ except Exception:
 
 app = Flask(__name__)
 
-# --- Настройка логгера Flask, чтобы не было дублей ---
+# Один путь логгирования в консоль — через gunicorn.error.
+# Поэтому flask-логгер настраиваем так:
 flask_log = app.logger
-flask_log.handlers.clear()          # чистим дефолтные
 flask_log.setLevel(logging.INFO)
-# Разрешаем всплытие до родителя (root) — попадёт в файл.
-flask_log.propagate = True
-# НИЧЕГО не добавляем вручную из gunicorn.error — gunicorn сам пишет в консоль.
+flask_log.handlers.clear()      # убираем дефолтный StreamHandler Flask
+flask_log.propagate = True      # отправляем записи в root (файл)
 
 API_URL = "https://graph.facebook.com/v15.0/{phone_number_id}/messages"
 VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
@@ -227,16 +226,18 @@ def cleanup_temp_files():
                 logger.warning(f"❌ Ошибка удаления старого лога {fname}: {e}")
 
 def start_memory_cleanup_loop():
+    guni = logging.getLogger("gunicorn.error")
     def loop():
         while True:
             time.sleep(600)
             gc.collect()
             mb = psutil.Process().memory_info().rss / 1024 / 1024
             msg = f"🧠 Использованная память {mb:.2f} MB"
-            # логируем ОДИН раз — через flask_log (уйдёт и в файл, и в консоль)
-            app.logger.info(msg)
+            # Пишем ТОЛЬКО в один логгер (gunicorn.error) — попадёт в консоль Render.
+            # В файл запись придёт через propagate root? Нет. Поэтому дублируем в root вручную.
+            logging.getLogger().info(msg)   # в файл
+            guni.info(msg)                  # в консоль
     threading.Thread(target=loop, daemon=True).start()
-
 start_memory_cleanup_loop()
 def log_memory_usage():
     process = psutil.Process()
@@ -301,7 +302,8 @@ def debug_mem():
     gc.collect()
     mb = psutil.Process().memory_info().rss / 1024 / 1024
     msg = f"🧠 (manual) {mb:.2f} MB"
-    app.logger.info(msg)        # один вызов — без дублей
+    logging.getLogger().info(msg)           # файл
+    logging.getLogger("gunicorn.error").info(msg)  # консоль
     return f"{mb:.2f} MB", 200
 
 def handle_message(message, phone_number_id, bot_display_number, contacts):
