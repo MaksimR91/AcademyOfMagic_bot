@@ -5,7 +5,7 @@ import time
 import threading
 import logging
 from datetime import datetime
-from flask import Flask, request, jsonify, render_template_string, abort
+from flask import Flask, request, jsonify, render_template_string, abort, current_app
 from logger import logger
 from rollover_scheduler import start_rollover_scheduler
 start_rollover_scheduler()
@@ -291,7 +291,8 @@ def debug_mem():
     import psutil, gc
     gc.collect()
     mb = psutil.Process().memory_info().rss / 1024 / 1024
-    logger.info("🧠 (manual) %.2f MB", mb)
+    logger.info("🧠 (manual root) %.2f MB", mb)           # уйдет в файл
+    current_app.logger.info("🧠 (manual flask) %.2f MB", mb)  # уйдет в консоль Render
     return f"{mb:.2f} MB", 200
 
 def handle_message(message, phone_number_id, bot_display_number, contacts):
