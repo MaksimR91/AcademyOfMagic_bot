@@ -3,7 +3,6 @@ from logging.handlers import TimedRotatingFileHandler
 import os
 import time
 import boto3
-from botocore.exceptions import ClientError, EndpointConnectionError, ReadTimeoutError
 from botocore.config import Config
 from datetime import datetime, timedelta
 
@@ -59,14 +58,21 @@ file_handler.setLevel(logging.INFO)
 file_handler.setFormatter(formatter)
 
 console_handler = logging.StreamHandler()
-console_handler.setLevel(logging.INFO)  # чтоб не флудило в Render
+console_handler.set_name("render_console")          # метка, чтобы не добавлять второй раз
+console_handler.setLevel(logging.INFO)
 console_handler.setFormatter(formatter)
 
 # ==== ГЛАВНЫЙ ЛОГГЕР ====
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
-logger.addHandler(file_handler)
-logger.addHandler(console_handler)
+
+# Добавляем файловый хэндлер, если его ещё нет
+if not any(isinstance(h, S3TimedRotatingFileHandler) for h in logger.handlers):
+    logger.addHandler(file_handler)
+
+# Добавляем консольный хэндлер по имени
+if not any(getattr(h, "name", "") == "render_console" for h in logger.handlers):
+    logger.addHandler(console_handler)
 
 # ==== FALLBACK ====
 if not logger.hasHandlers():

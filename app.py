@@ -246,9 +246,8 @@ def start_memory_cleanup_loop():
             time.sleep(600)
             gc.collect()
             mb = psutil.Process().memory_info().rss / 1024 / 1024
-            msg = f"🧠 periodic {mb:.2f} MB"
+            msg = f"🧠 Использованная память {mb:.2f} MB"
             logger.info(msg)
-            guni.info(msg)  # если вдруг root не дойдёт
     threading.Thread(target=loop, daemon=True).start()
 
 start_memory_cleanup_loop()
@@ -316,7 +315,6 @@ def debug_mem():
     mb = psutil.Process().memory_info().rss / 1024 / 1024
     msg = f"🧠 (manual) {mb:.2f} MB"
     logger.info(msg)            # в файл и в Render (через добавленный хэндлер)
-    app.logger.info(msg)        # дублировать не обязательно, но можно
     return f"{mb:.2f} MB", 200
 
 def handle_message(message, phone_number_id, bot_display_number, contacts):
