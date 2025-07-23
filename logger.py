@@ -59,7 +59,7 @@ file_handler.setLevel(logging.INFO)
 file_handler.setFormatter(formatter)
 
 console_handler = logging.StreamHandler()
-console_handler.setLevel(logging.WARNING)  # чтоб не флудило в Render
+console_handler.setLevel(logging.INFO)  # чтоб не флудило в Render
 console_handler.setFormatter(formatter)
 
 # ==== ГЛАВНЫЙ ЛОГГЕР ====
