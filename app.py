@@ -44,6 +44,26 @@ except Exception:
 
 app = Flask(__name__)
 
+import sys
+gunicorn_err = logging.getLogger("gunicorn.error")
+
+# пробрасываем gunicorn handlers в наш root и flask
+for h in gunicorn_err.handlers:
+    logger.addHandler(h)          # root -> Render
+    app.logger.addHandler(h)      # flask -> Render
+
+logger.setLevel(logging.INFO)
+app.logger.setLevel(logging.INFO)
+
+# чтобы наверняка все шло в stdout
+for h in gunicorn_err.handlers:
+    if hasattr(h, "stream"):
+        h.stream = sys.stdout
+
+# (опционально) отключаем propagate, чтобы не было дублей
+logger.propagate = False
+app.logger.propagate = False
+
 API_URL = "https://graph.facebook.com/v15.0/{phone_number_id}/messages"
 VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
 openai_api_key = os.getenv("OPENAI_APIKEY")
@@ -219,13 +239,16 @@ def cleanup_temp_files():
                 logger.warning(f"❌ Ошибка удаления старого лога {fname}: {e}")
 
 def start_memory_cleanup_loop():
+    guni = logging.getLogger("gunicorn.error")  # на всякий
+
     def loop():
         while True:
             time.sleep(600)
             gc.collect()
-            process = psutil.Process()
-            mem_mb = process.memory_info().rss / 1024 / 1024
-            logger.info(f"🧠 Используемая память: {mem_mb:.2f} MB")
+            mb = psutil.Process().memory_info().rss / 1024 / 1024
+            msg = f"🧠 periodic {mb:.2f} MB"
+            logger.info(msg)
+            guni.info(msg)  # если вдруг root не дойдёт
     threading.Thread(target=loop, daemon=True).start()
 
 start_memory_cleanup_loop()
@@ -291,8 +314,9 @@ def debug_mem():
     import psutil, gc
     gc.collect()
     mb = psutil.Process().memory_info().rss / 1024 / 1024
-    logger.info("🧠 (manual root) %.2f MB", mb)           # уйдет в файл
-    current_app.logger.info("🧠 (manual flask) %.2f MB", mb)  # уйдет в консоль Render
+    msg = f"🧠 (manual) {mb:.2f} MB"
+    logger.info(msg)            # в файл и в Render (через добавленный хэндлер)
+    app.logger.info(msg)        # дублировать не обязательно, но можно
     return f"{mb:.2f} MB", 200
 
 def handle_message(message, phone_number_id, bot_display_number, contacts):
