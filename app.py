@@ -18,6 +18,8 @@ from utils.upload_materials_to_meta_and_update_registry import \
 import json, tempfile, textwrap
 from router import route_message
 from state.state import save_if_absent      # понадобится, чтобы один раз сохранить номер
+import gevent.monkey
+gevent.monkey.patch_all(subprocess=True, ssl=True)
 
 # Supabase config
 SUPABASE_URL = os.getenv("SUPABASE_URL")
