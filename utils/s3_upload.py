@@ -5,7 +5,7 @@ _AWS_ID     = os.getenv("YANDEX_ACCESS_KEY_ID")
 _AWS_SECRET = os.getenv("YANDEX_SECRET_ACCESS_KEY")
 _ENDPOINT   = "https://storage.yandexcloud.net"
 _REGION     = "ru-central1"
-_BUCKET     = os.getenv("YANDEX_BUCKET", "magicacademylogsars")
+_BUCKET     = "magicacademylogsars"
 
 _s3 = boto3.client(
     "s3",

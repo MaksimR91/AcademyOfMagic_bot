@@ -1,7 +1,14 @@
 import os
 import time
 import logging
-from openai import OpenAI, APIError, RateLimitError, AuthenticationError, Timeout
+from openai import (
+    OpenAI,
+    APIError,
+    RateLimitError,
+    AuthenticationError,
+    APITimeoutError,
+    APIConnectionError,
+)
 
 logger = logging.getLogger(__name__)
 client = OpenAI(api_key=os.getenv("OPENAI_APIKEY"))
@@ -31,11 +38,11 @@ def ask_openai(prompt: str, system_prompt: str = "Ты ассистент илл
         return "Ошибка авторизации"
 
     except RateLimitError:
-        logger.warning("[ask_openai] ⚠️ Лимит запросов")
-        return "Превышен лимит запросов"
+         logger.warning("[ask_openai] ⚠️ Лимит запросов")
+         return "Превышен лимит запросов"
 
-    except Timeout:
-        logger.warning("[ask_openai] ⏰ Таймаут")
+    except (APITimeoutError, APIConnectionError):
+        logger.warning("[ask_openai] ⏰ Таймаут / нет связи")
         return "Таймаут"
 
     except APIError as e:
