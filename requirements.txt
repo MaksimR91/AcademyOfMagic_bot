@@ -9,3 +9,4 @@ gevent
 apscheduler
 google-cloud-vision
 notion-client>=2.2
+concurrent-log-handler>=0.9

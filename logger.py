@@ -1,5 +1,6 @@
 import logging
-from logging.handlers import TimedRotatingFileHandler
+# новый хэндлер, умеющий писать в один файл из нескольких процессов
+from concurrent_log_handler import ConcurrentTimedRotatingFileHandler
 import os
 import time
 import boto3
@@ -35,8 +36,8 @@ s3_console.setFormatter(logging.Formatter("[%(asctime)s] [%(levelname)s] [S3] %(
 logger_s3.addHandler(s3_console)
 logger_s3.propagate = False
 
-# ==== КАСТОМНЫЙ ХЭНДЛЕР ====
-class S3TimedRotatingFileHandler(TimedRotatingFileHandler):
+# ==== КАСТОМНЫЙ ХЭНДЛЕР (multi‑process) ====
+class S3TimedRotatingFileHandler(ConcurrentTimedRotatingFileHandler):
     def doRollover(self):
         logger_s3.info("🔄 Ротация логов (super().doRollover())")
         super().doRollover()
@@ -51,8 +52,13 @@ formatter = logging.Formatter("[%(asctime)s] [%(levelname)s] %(message)s", "%Y-%
 
 # ==== ХЭНДЛЕРЫ (только файл) ====
 file_handler = S3TimedRotatingFileHandler(
-    os.path.join(LOG_DIR, "log"), when="midnight", interval=1,
-    backupCount=14, encoding="utf-8"
+    os.path.join(LOG_DIR, "log"),
+    when="midnight",
+    interval=1,
+    backupCount=14,
+    encoding="utf-8",
+    utc=True,   # ротация ровно в 00:00 UTC
+    delay=True  # файл откроется при первом emit(), экономит дескрипторы
 )
 file_handler.suffix = "%Y-%m-%d.log"
 file_handler.setLevel(logging.INFO)
