@@ -1,5 +1,9 @@
 import gevent.monkey
 gevent.monkey.patch_all(subprocess=True, ssl=True)
+# ----- ENV sanity check --------------------------------------------------
+from utils.env_check import check_env
+check_env()                       # только логируем, не падаем
+# ------------------------------------------------------------------------
 import os
 import gc
 import psutil
