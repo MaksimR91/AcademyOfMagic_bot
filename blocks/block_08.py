@@ -1,6 +1,6 @@
 import time
 import json
-from threading import Timer
+from utils.reminder_engine import plan
 from utils.ask_openai import ask_openai
 from utils.wants_handover_ai import wants_handover_ai
 from state.state import get_state, update_state
@@ -262,11 +262,11 @@ def _build_resume_text(st: dict) -> str:
 # ---------------------------------------------------------------------------
 def _schedule_reminder1(user_id: str, send_text_func):
     """Поставить таймер на 8.1 (4ч)."""
-    Timer(
-        REMINDER1_DELAY_HOURS * 3600,
-        lambda: _reminder1_if_silent(user_id, send_text_func)
-    ).start()
-
+    plan(
+        user_id,
+        "blocks.block_08._reminder1_if_silent",   # модуль с подчёркиванием
+        REMINDER1_DELAY_HOURS               # задержка уже в секундах
+    )
 # ---------------------------------------------------------------------------
 def _reminder1_if_silent(user_id: str, send_text_func):
     st = get_state(user_id)
@@ -281,10 +281,11 @@ def _reminder1_if_silent(user_id: str, send_text_func):
         txt = "Напоминаю: проверьте, пожалуйста, данные. Если нужно поправить — дайте знать."
     send_text_func(txt)
     update_state(user_id, {"reminder1_sent": True, "last_bot_question": txt, "last_message_ts": time.time()})
-    Timer(
-        REMINDER2_DELAY_HOURS * 3600,
-        lambda: _reminder2_if_silent(user_id, send_text_func)
-    ).start()
+    plan(
+        user_id,
+        "blocks.block_08._reminder2_if_silent",   # модуль с подчёркиванием
+        REMINDER2_DELAY_HOURS               # задержка уже в секундах
+    )
 
 # ---------------------------------------------------------------------------
 def _reminder2_if_silent(user_id: str, send_text_func):
@@ -304,10 +305,11 @@ def _reminder2_if_silent(user_id: str, send_text_func):
     send_text_func(txt)
     update_state(user_id, {"reminder2_sent": True, "last_bot_question": txt, "last_message_ts": time.time()})
     # финальный таймер 4ч -> проверка тишины перед handover
-    Timer(
-        FINAL_TIMEOUT_HOURS * 3600,
-        lambda: _finalize_if_silent_8(user_id)
-    ).start()
+    plan(
+        user_id,
+        "blocks.block_08._finalize_if_silent_8",   # модуль с подчёркиванием
+        FINAL_TIMEOUT_HOURS               # задержка уже в секундах
+    )
 
 # ---------------------------------------------------------------------------
 def _send_thanks_and_close(user_id: str, send_text_func, *, confirmed: bool, escalate: bool=False):

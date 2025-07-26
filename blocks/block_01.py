@@ -3,7 +3,6 @@ import time
 from utils.ask_openai import ask_openai
 from utils.wants_handover_ai import wants_handover_ai
 from state.state import get_state, update_state
-from threading import Timer
 
 # Пути к промптам
 GLOBAL_PROMPT_PATH = "prompts/global_prompt.txt"
@@ -45,4 +44,8 @@ def handle_block1(message_text, user_id, send_reply_func):
     update_state(user_id, {"stage": "block1", "last_message_ts": time.time()})
 
     # Запуск таймеров переходов
-    Timer(DELAY_TO_BLOCK_2_SECONDS, lambda: proceed_to_block_2(user_id)).start()
+    from utils.reminder_engine import plan
+    plan(user_id,
+    "blocks.block_01.proceed_to_block_2",   # <‑‑ путь к функции
+    DELAY_TO_BLOCK_2_SECONDS)
+    

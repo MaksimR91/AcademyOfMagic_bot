@@ -1,7 +1,7 @@
 # blocks/block_10.py
 import os
 import time
-from threading import Timer
+from utils.reminder_engine import plan
 from notion_client import Client, APIResponseError
 from state.state import get_state, update_state
 from logger import logger
@@ -211,7 +211,11 @@ def _schedule_retry(user_id: str):
         from router import route_message
         route_message("", user_id, force_stage="block10")
 
-    Timer(RETRY_DELAY_SECONDS, _retry).start()
+    plan(
+        user_id,
+        "blocks.block_10._schedule_retry._retry",   # модуль с подчёркиванием
+        RETRY_DELAY_SECONDS               # задержка уже в секундах
+    )
     logger.info(f"[block10] scheduled retry in {RETRY_DELAY_SECONDS}s user={user_id}")
 
 # ----------------------------------------------------------------------------

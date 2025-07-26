@@ -1,10 +1,10 @@
 import time
 import re
-from threading import Timer
 from utils.ask_openai import ask_openai
 from utils.wants_handover_ai import wants_handover_ai
 from utils.schedule import load_schedule_from_s3, check_date_availability
 from state.state import get_state, update_state, save_if_absent
+from utils.reminder_engine import plan
 
 # Пути к промптам
 GLOBAL_PROMPT_PATH = "prompts/global_prompt.txt"
@@ -131,10 +131,9 @@ def handle_block3a(message_text, user_id, send_reply_func, client_request_date):
 
     # ===== Продолжаем диалог =====
     update_state(user_id, {"stage": "block3a", "last_message_ts": time.time(), "last_bot_question": reply})
-    Timer(
-        DELAY_TO_BLOCK_3_1_HOURS * 3600,
-        lambda: send_first_reminder_if_silent(user_id, send_reply_func),
-    ).start()
+    plan(user_id,
+    "blocks.block_03a.send_first_reminder_if_silent",   # <‑‑ путь к функции
+    DELAY_TO_BLOCK_3_1_HOURS * 3600)
     
 def send_first_reminder_if_silent(user_id, send_reply_func):
     state = get_state(user_id)
@@ -152,10 +151,9 @@ def send_first_reminder_if_silent(user_id, send_reply_func):
     update_state(user_id, {"stage": "block3a", "last_message_ts": time.time()})
 
     # ставим таймер на второе напоминание
-    Timer(
-        DELAY_TO_BLOCK_3_2_HOURS * 3600,
-        lambda: send_second_reminder_if_silent(user_id, send_reply_func),
-    ).start()
+    plan(user_id,
+    "blocks.block_03a.send_second_reminder_if_silent",   # <‑‑ путь к функции
+    DELAY_TO_BLOCK_3_2_HOURS * 3600)
 
 
 def send_second_reminder_if_silent(user_id, send_reply_func):
@@ -181,4 +179,6 @@ def send_second_reminder_if_silent(user_id, send_reply_func):
         update_state(user_id, {"handover_reason": "no_response_after_3_2", "scenario_stage_at_handover": "block3"})
         from router import route_message
         route_message("", user_id, force_stage="block9")
-    Timer(FINAL_TIMEOUT_HOURS * 3600, finalize_if_still_silent).start()
+    plan(user_id,
+    "blocks.block_03a.finalize_if_still_silent",   # <‑‑ путь к функции
+    FINAL_TIMEOUT_HOURS * 3600)

@@ -1,7 +1,7 @@
 import re
 import json
 import time
-from threading import Timer
+from utils.reminder_engine import plan
 from utils.materials import s3, S3_BUCKET
 from utils.ask_openai import ask_openai
 from utils.wants_handover_ai import wants_handover_ai
@@ -131,10 +131,9 @@ def handle_block4(
         })
 
         # через 15 мин. спросим про пакет
-        Timer(
-        FOLLOWUP_DELAY_MIN * 60,
-        lambda: send_follow_up_if_needed(user_id, send_text_func)
-        ).start()
+        plan(user_id,
+        "blocks.block_04.send_follow_up_if_needed",   # <‑‑ путь к функции
+        FOLLOWUP_DELAY_MIN * 60)
         return
 
     # ========== клиент отвечает после материалов ============================
@@ -194,11 +193,9 @@ def send_follow_up_if_needed(user_id, send_text_func):
         "last_message_ts": time.time(),
     })
 
-    Timer(
-        DELAY_TO_REMINDER_HOURS * 3600,
-        lambda: send_block4_reminder_if_silent(user_id, send_text_func),
-    ).start()
-
+    plan(user_id,
+     "blocks.block_04.send_block4_reminder_if_silent",   # <‑‑ путь к функции
+     DELAY_TO_REMINDER_HOURS * 3600)
 
 # ---- напоминание 4.1 -------------------------------------------------------
 
@@ -227,10 +224,9 @@ def send_block4_reminder_if_silent(user_id, send_text_func):
     })
 
     # ------- ставим таймер на второе касание через 12 ч -------
-    Timer(
-        REMINDER_2_DELAY_HOURS * 3600,
-        lambda: send_second_reminder_if_silent(user_id, send_text_func)
-    ).start()
+    plan(user_id,
+    "blocks.block_04.send_second_reminder_if_silent",   # <‑‑ путь к функции
+    REMINDER_2_DELAY_HOURS * 3600)
     
 def send_second_reminder_if_silent(user_id, send_text_func):
     st = get_state(user_id)
@@ -256,10 +252,9 @@ def send_second_reminder_if_silent(user_id, send_text_func):
     })
 
     # ------ ставим финальный таймер на 4 ч → block9 -------
-    Timer(
-        FINAL_TIMEOUT_HOURS * 3600,
-        lambda: finalize_block4_if_silent(user_id)
-    ).start()
+    plan(user_id,
+    "blocks.block_04.finalize_block4_if_silent",   # <‑‑ путь к функции
+    FINAL_TIMEOUT_HOURS * 3600)
 
 def finalize_block4_if_silent(user_id):
     st = get_state(user_id)

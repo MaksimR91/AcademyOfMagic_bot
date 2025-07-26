@@ -1,8 +1,8 @@
 import time
-from threading import Timer
 from utils.ask_openai import ask_openai
 from utils.wants_handover_ai import wants_handover_ai
 from state.state import get_state, update_state
+from utils.reminder_engine import plan
 
 # Пути к промптам
 GLOBAL_PROMPT_PATH = "prompts/global_prompt.txt"
@@ -74,10 +74,9 @@ def handle_block2(message_text, user_id, send_reply_func):
         next_block = "block3d"
     else:
         update_state(user_id, {"stage": "block2", "last_message_ts": time.time()})
-        Timer(
-            DELAY_TO_BLOCK_2_1_HOURS * 3600,
-            lambda: send_first_reminder_if_silent(user_id, send_reply_func),
-        ).start()
+        plan(user_id,
+        "blocks.block_02.send_first_reminder_if_silent",   # <‑‑ путь к функции
+        DELAY_TO_BLOCK_2_1_HOURS * 3600)
         return
     update_state(user_id, {"show_type": show_type})
     from router import route_message
@@ -98,7 +97,10 @@ def send_first_reminder_if_silent(user_id, send_reply_func):
     update_state(user_id, {"stage": "block2", "last_message_ts": time.time()})
 
     # Подготовка таймера на второе напоминание через 12 часов (в блок 2.2)
-    Timer(DELAY_TO_BLOCK_2_2_HOURS * 3600, lambda: send_second_reminder_if_silent(user_id, send_reply_func)).start()
+    plan(user_id,
+    "blocks.block_02.send_second_reminder_if_silent",   # <‑‑ путь к функции
+    DELAY_TO_BLOCK_2_2_HOURS * 3600)
+    
 
 def send_second_reminder_if_silent(user_id, send_reply_func):
     state = get_state(user_id)
@@ -123,4 +125,6 @@ def send_second_reminder_if_silent(user_id, send_reply_func):
         from router import route_message
         route_message("", user_id, force_stage="block9")
 
-    Timer(FINAL_TIMEOUT_HOURS * 3600, finalize_if_still_silent).start()
+    plan(user_id,
+    "blocks.block_02.finalize_if_still_silent",   # <‑‑ путь к функции
+    FINAL_TIMEOUT_HOURS * 3600)

@@ -1,7 +1,7 @@
 import time
 import json
 import re
-from threading import Timer
+from utils.reminder_engine import plan
 from utils.ask_openai         import ask_openai
 from utils.wants_handover_ai  import wants_handover_ai
 from state.state              import get_state, update_state, save_if_absent
@@ -117,14 +117,18 @@ def handle_block7(
         # если уже отправляли 1‑е напоминание – ждём 2‑е
         if st.get("reminder1_sent") and not st.get("reminder2_sent"):
             delay = REMINDER_2_DELAY_HOURS * 3600
-            Timer(delay,
-                  lambda: _reminder2_if_silent(user_id, send_text_func)
-            ).start()
+            plan(
+        user_id,
+        "blocks.block_07._reminder2_if_silent",   # модуль с подчёркиванием
+        delay               # задержка уже в секундах
+    )
         # иначе ставим таймер на 7.1
         elif not st.get("reminder1_sent"):
-            Timer(REMINDER_HOURS * 3600,
-                  lambda: _reminder1_if_silent(user_id, send_text_func)
-            ).start()
+            plan(
+        user_id,
+        "blocks.block_07._reminder1_if_silent",   # модуль с подчёркиванием
+        REMINDER_HOURS               # задержка уже в секундах
+    )
     proof_ok  = bool(state.get("payment_valid"))
     has_proof = bool(state.get("payment_proof_url"))
 # ───  Бронирование даты сразу после валидного чека  ────────────
@@ -312,10 +316,11 @@ def _reminder1_if_silent(user_id: str, send_text_func):
     })
 
     # ставим таймер на 7.2 через 12 ч
-    Timer(
-        REMINDER_2_DELAY_HOURS * 3600,
-        lambda: _reminder2_if_silent(user_id, send_text_func)
-    ).start()
+    plan(
+        user_id,
+        "blocks.block_07._reminder2_if_silent",   # модуль с подчёркиванием
+        REMINDER_2_DELAY_HOURS               # задержка уже в секундах
+    )
 
 # ---- напоминание 7.2 -------------------------------------------------------
 def _reminder2_if_silent(user_id: str, send_text_func):
@@ -342,11 +347,11 @@ def _reminder2_if_silent(user_id: str, send_text_func):
     })
 
     # финальный 4‑часовой таймер с проверкой тишины
-    Timer(
-        FINAL_TIMEOUT_HOURS * 3600,
-        lambda: _finalize_if_silent_7(user_id)
-    ).start()
-
+    plan(
+        user_id,
+        "blocks.block_07._finalize_if_silent_7",   # модуль с подчёркиванием
+        FINAL_TIMEOUT_HOURS               # задержка уже в секундах
+    )
 
 def _finalize_if_silent_7(user_id: str):
     """
