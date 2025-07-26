@@ -1,16 +1,44 @@
-import os, time, logging, uuid
+import os, time, logging
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
-from state.state import get_state          # тот же dict-API
-log = logging.getLogger(__name__)
+from state.state import get_state          # тот же dict‑API
 
-# ---------- APScheduler с jobstore в Supabase -------------------
-pg_url = os.getenv("SUPABASE_URL").replace("https://", "postgresql+psycopg2://")
-pg_url = pg_url.replace(".supabase.co", ".supabase.co/postgres")          # URI вида postgresql://user:pass@host:5432/postgres
-jobstores = {"default": SQLAlchemyJobStore(url=pg_url)}
+# ────────────────────  базовый логгер  ──────────────────────
+log = logging.getLogger(__name__)
+log.setLevel(logging.INFO)
+log.info("📦 reminder_engine import started")
+
+# ---------- JobStore (Postgres → fallback memory) --------------
+try:
+    raw_supabase = os.getenv("SUPABASE_URL")
+    if not raw_supabase:
+        raise RuntimeError("SUPABASE_URL env var missing")
+
+    # postgresql+psycopg2://USER:PASSWORD@HOST:5432/postgres
+    pg_url = (
+        raw_supabase
+        .replace("https://", "postgresql+psycopg2://")
+        .replace(".supabase.co", ".supabase.co/postgres")
+    )
+    log.info(f"🔗 building PG jobstore url → {pg_url}")
+
+    jobstores = {
+        "default": SQLAlchemyJobStore(
+            url=pg_url,
+            engine_options={"connect_args": {"connect_timeout": 5}},  # чтобы не висеть минутами
+        )
+    }
+except Exception as e:
+    log.exception(f"⚠️  SQLAlchemyJobStore init failed, using memory store: {e}")
+    jobstores = {"default": "memory"}
+
+# ---------- APScheduler ----------------------------------------
 sched = BackgroundScheduler(jobstores=jobstores, timezone="UTC")
-sched.start()
-log.info("⏰ reminder_engine started")
+try:
+    sched.start()
+    log.info("⏰ reminder_engine started with %s jobstore", next(iter(jobstores)))
+except Exception as e:
+    log.exception(f"💥 APScheduler start error: {e}")
 
 # ---------- универсальный планировщик ---------------------------
 def plan(user_id: str, func_path: str, delay_sec: int) -> None:
