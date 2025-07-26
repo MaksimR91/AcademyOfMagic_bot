@@ -1,4 +1,4 @@
-import os, time, logging
+import os, time, logging, uuid
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 from state.state import get_state          # тот же dict‑API
@@ -15,17 +15,21 @@ log.info("📦 reminder_engine import started")
 
 # ---------- JobStore (Postgres → fallback memory) --------------
 try:
-    raw_supabase = os.getenv("SUPABASE_URL")
-    if not raw_supabase:
-        raise RuntimeError("SUPABASE_URL env var missing")
+    # ── 1) Предпочитаем готовый DSN ---------------------------------
+    pg_url = os.getenv("SUPABASE_DB_URL")
 
-    # postgresql+psycopg2://USER:PASSWORD@HOST:5432/postgres
-    pg_url = (
-        raw_supabase
-        .replace("https://", "postgresql+psycopg2://")
-        .replace(".supabase.co", ".supabase.co/postgres")
-    )
-    log.info(f"🔗 building PG jobstore url → {pg_url}")
+    # ── 2) Fallback: строим URL по‑старому из SUPABASE_URL ----------
+    if not pg_url:
+        raw_supabase = os.getenv("SUPABASE_URL")
+        if not raw_supabase:
+            raise RuntimeError("neither SUPABASE_DB_URL nor SUPABASE_URL set")
+
+        pg_url = (
+            raw_supabase
+            .replace("https://", "postgresql+psycopg2://")
+            .replace(".supabase.co", ".supabase.co/postgres")
+        )
+    log.info(f"🔗 reminder_engine PG url → {pg_url.split('@')[-1].split('?')[0]}")
 
     jobstores = {
         "default": SQLAlchemyJobStore(
