@@ -67,7 +67,16 @@ file_handler.setFormatter(formatter)
 # ==== ГЛАВНЫЙ ЛОГГЕР ====
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
+# ---- Console handler (Render dashboard) ----
+#  • выводит всё ≥INFO в stderr → сразу видно в логах сервиса
+#  • добавляем один раз, чтобы не было дублей при per‑process init
+if not any(isinstance(h, logging.StreamHandler) for h in logger.handlers):
+    console_handler = logging.StreamHandler()          # stderr по умолчанию
+    console_handler.setLevel(logging.INFO)
+    console_handler.setFormatter(formatter)
+    logger.addHandler(console_handler)
 
+# ---- File handler ----
 # Добавляем файловый хэндлер, если его ещё нет
 if not any(isinstance(h, S3TimedRotatingFileHandler) for h in logger.handlers):
     logger.addHandler(file_handler)
