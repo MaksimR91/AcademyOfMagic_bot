@@ -3,6 +3,11 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 from state.state import get_state          # тот же dict‑API
 
+if not logging.getLogger().handlers:
+    h = logging.StreamHandler()          # stdout → Render console
+    h.setFormatter(logging.Formatter("%(levelname)s:%(name)s:%(message)s"))
+    logging.getLogger().addHandler(h)
+
 # ────────────────────  базовый логгер  ──────────────────────
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
