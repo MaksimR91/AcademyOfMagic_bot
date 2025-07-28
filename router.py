@@ -49,27 +49,35 @@ def route_message(
     · Готовим callables для WhatsApp  
     · Дергаем нужный handler‑блок
     """
-        # ---------- техническая команда "#reset" (только для админа) ----------
+    # -------- подготовка функций отправки (нужны ПЕРЕД #reset) -----------
+    wa_to = (get_state(user_id) or {}).get("normalized_number", user_id)
+    send_text_func     = lambda body:     send_text(wa_to, body)
+    send_document_func = lambda media_id: send_document(wa_to, media_id)
+    send_video_func    = lambda media_id: send_video(wa_to, media_id)
+
+    # ---------- техническая команда "#reset" (только для админа) ----------
     if message_text.strip() == "#reset":
         if user_id in ADMIN_NUMBERS:
             from state.state import delete_state
             delete_state(user_id)
-            send_text_func("State cleared.")
-            return
+
+            # чистим отложенные джобы
+            from utils.reminder_engine import sched
+            for job in sched.get_jobs():
+                if job.id.startswith(f"{user_id}:"):
+                    sched.remove_job(job.id)
+
+            # отвечаем сразу в канал (без лишних лямбд)
+            send_text(wa_to, "State cleared.")
         else:
-            logging.warning(f"Ignored #reset from non‑admin {user_id}")
-            send_text_func("Команда недоступна.")
-            return
+            logger.warning("Ignored #reset from non‑admin %s", user_id)
+            send_text(wa_to, "Команда недоступна.")
+        return
     state = get_state(user_id) or {}
     stage = force_stage or state.get("stage", "block1")
 
     logger.info(f"📍 route_message → user={user_id} stage={stage}")
 
-    # -------- подготовка функций отправки ----------------------------------
-    wa_to = state.get("normalized_number", user_id)
-    send_text_func     = lambda body:     send_text(wa_to, body)
-    send_document_func = lambda media_id: send_document(wa_to, media_id)
-    send_video_func    = lambda media_id: send_video(wa_to, media_id)
 
     # канал для сообщений Арсению
     OWNER_WA_ID = "787057065073"                     # Meta‑формат (+7 … → 7)
