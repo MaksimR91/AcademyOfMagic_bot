@@ -73,6 +73,11 @@ def route_message(
             logger.warning("Ignored #reset from non‑admin %s", user_id)
             send_text(wa_to, "Команда недоступна.")
         return
+    elif message_text.strip() == "#jobs" and user_id in ADMIN_NUMBERS:
+        from utils.reminder_engine import sched
+        jobs = "\n".join(j.id for j in sched.get_jobs())
+        send_text(wa_to, jobs or "нет job‑ов")
+        return
     state = get_state(user_id) or {}
     stage = force_stage or state.get("stage", "block1")
 
