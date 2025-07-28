@@ -1,5 +1,4 @@
 # router.py
-from router import route_message
 import os
 from state.state import get_state
 from logger import logger
