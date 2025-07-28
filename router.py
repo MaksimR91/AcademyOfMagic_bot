@@ -1,4 +1,6 @@
 # router.py
+from router import route_message
+import os
 from state.state import get_state
 from logger import logger
 from utils.whatsapp_senders import send_text, send_document, send_video, send_image
@@ -13,6 +15,10 @@ from blocks import (
     block_09, block_10,
 )
 
+# ── читаем список админ‑номеров один раз при импорте ────────────────
+ADMIN_NUMBERS = {
+    num.strip() for num in os.getenv("ADMIN_NUMBERS", "").split(",") if num.strip()
+}
 # --- <stage> → (module, handler_name) --------------------------------------
 BLOCK_MAP = {
     "block1":  (block_01,  "handle_block1"),
@@ -44,6 +50,17 @@ def route_message(
     · Готовим callables для WhatsApp  
     · Дергаем нужный handler‑блок
     """
+        # ---------- техническая команда "#reset" (только для админа) ----------
+    if message_text.strip() == "#reset":
+        if user_id in ADMIN_NUMBERS:
+            from state.state import delete_state
+            delete_state(user_id)
+            send_text_func("State cleared.")
+            return
+        else:
+            logging.warning(f"Ignored #reset from non‑admin {user_id}")
+            send_text_func("Команда недоступна.")
+            return
     state = get_state(user_id) or {}
     stage = force_stage or state.get("stage", "block1")
 
