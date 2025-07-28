@@ -200,23 +200,15 @@ def _build_notion_properties(st: dict) -> dict:
     return props
 
 # ----------------------------------------------------------------------------
-def _schedule_retry(user_id: str):
-    """
-    Планируем повторную попытку экспорта (остаёмся на block10).
-    """
-    def _retry():
-        st = get_state(user_id) or {}
-        if st.get("notion_exported"):
-            return
-        from router import route_message
-        route_message("", user_id, force_stage="block10")
-
-    plan(
-        user_id,
-        "blocks.block_10._schedule_retry._retry",   # модуль с подчёркиванием
-        RETRY_DELAY_SECONDS               # задержка уже в секундах
-    )
+def retry_export(user_id: str):
+    """Внешняя функция — нужна APScheduler для импорта."""
+    from router import route_message
+    route_message("", user_id, force_stage="block10")
     logger.info(f"[block10] scheduled retry in {RETRY_DELAY_SECONDS}s user={user_id}")
+    
+def _schedule_retry(user_id: str):
+    plan(user_id, "blocks.block_10.retry_export", RETRY_DELAY_SECONDS)
+
 
 # ----------------------------------------------------------------------------
 def handle_block10(message_text: str, user_id: str, send_text_func):
