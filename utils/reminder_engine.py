@@ -1,4 +1,4 @@
-import os, time, logging, uuid
+import os, time, logging
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 from state.state import get_state          # тот же dict‑API
@@ -64,32 +64,36 @@ def plan(user_id: str, func_path: str, delay_sec: int) -> None:
     if run_at <= time.time():
         return
 
-    def _runner():
-        # Если пользователя уже нет в нужном стадии – тихо выходим
-        mod_name, func_name = func_path.rsplit(".", 1)
-        mod = __import__(mod_name, fromlist=[func_name])
-        func = getattr(mod, func_name)
-        try:
-            func(user_id, _send_func_factory(user_id))
-        except TypeError:
-            # блоки, где сигнатура (user_id) без send_func
-            func(user_id)
-        except Exception as e:
-            log.error(f"[reminder_engine] job {job_id} error: {e}")
-
     # remove & add (idempotent)
     try:
         sched.remove_job(job_id)
     except Exception:
         pass
     sched.add_job(
-        _runner,
+        "utils.reminder_engine.execute_job",   # ← строкой!
         "date",
         id=job_id,
         run_date=time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(run_at)),
         misfire_grace_time=300,
+        args=[user_id, func_path],             # ← аргументы
     )
     log.info(f"[reminder_engine] scheduled {job_id} in {delay_sec//60} min")
+
+# ---------- точка входа, которую увидит APScheduler -------------
+def execute_job(user_id: str, func_path: str):
+    """
+    Унифицированный launcher, чтобы избежать проблем сериализации.
+    Сигнатура строго (user_id, func_path) – оба строки.
+    """
+    mod_name, func_name = func_path.rsplit(".", 1)
+    mod = __import__(mod_name, fromlist=[func_name])
+    func = getattr(mod, func_name)
+    try:
+        func(user_id, _send_func_factory(user_id))
+    except TypeError:
+        func(user_id)
+    except Exception as e:
+        log.error(f"[reminder_engine] job {user_id}:{func_path} error: {e}")
 
 # ---------- лёгкая обёртка для send_text ------------------------
 from utils.whatsapp_senders import send_text
