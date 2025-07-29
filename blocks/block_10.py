@@ -36,7 +36,7 @@ SCENARIO_STAGE_MAP = {
     "block6b": "Получен отказ клиента",
     "block7":  "Проверка ответов и чека",
     "block8":  "Подтверждено клиентом",
-    "block9":  "Хендовер",
+    "block9":  "Ручная обработка заказа",
     "block10": "CRM",
 }
 
@@ -64,6 +64,15 @@ HANDOVER_REASON_HUMAN = {
 # ───────────────── Причины, трактуемые как реальный отказ / потеря лида ─────
 IMPLICIT_REFUSAL_REASONS = {
     "client_declined",
+    "no_response_after_2_2",
+    "no_response_after_3_2",
+    "no_response_after_4_2",
+    "no_response_after_5_2",
+    "no_response_after_7_2",
+    "no_response_after_8_2",
+}
+
+SILENT_REFUSAL_REASONS = {
     "no_response_after_2_2",
     "no_response_after_3_2",
     "no_response_after_4_2",
@@ -116,7 +125,11 @@ def _build_notion_properties(st: dict) -> dict:
     # --- ЭТАП (status) ------------------------------------------------------
     scenario_stage_code = st.get("scenario_stage_at_handover") or st.get("stage")
     stage_human = SCENARIO_STAGE_MAP.get(scenario_stage_code, "Не указано")
-    props["ЭТАП"] = {"status": {"name": stage_human}}
+    # если это неявный отказ – фиксируем его в ЭТАП
+    if st.get("handover_reason") in SILENT_REFUSAL_REASONS:
+        props["ЭТАП"] = {"status": {"name": "Отказ (молчание клиента)"}}
+    else:
+        props["ЭТАП"] = {"status": {"name": stage_human}}
 
     # --- ОТКАЗ (multi_select) ----------------------------------------------
     reason = st.get("handover_reason")
@@ -207,7 +220,7 @@ def retry_export(user_id: str):
     logger.info(f"[block10] scheduled retry in {RETRY_DELAY_SECONDS}s user={user_id}")
     
 def _schedule_retry(user_id: str):
-    plan(user_id, "blocks.block_10.retry_export", RETRY_DELAY_SECONDS)
+    plan(user_id, "blocks.block_10:retry_export", RETRY_DELAY_SECONDS)
 
 
 # ----------------------------------------------------------------------------
