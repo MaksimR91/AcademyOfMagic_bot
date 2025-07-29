@@ -281,6 +281,10 @@ def webhook():
             return "Verification failed", 403
 
     elif request.method == 'POST':
+        # ➊ Сырой payload, чтобы увидеть реальный user_id и убедиться,
+        #    что он совпадает с ADMIN_NUMBERS
+        logger.info("📩 webhook raw json: %s", request.get_json())
+
         data = request.json
         logger.info("Получено сообщение: %s", data)
 
