@@ -264,7 +264,7 @@ def _schedule_reminder1(user_id: str, send_text_func):
     """Поставить таймер на 8.1 (4ч)."""
     plan(
         user_id,
-        "blocks.block_08._reminder1_if_silent",   # модуль с подчёркиванием
+        "blocks.block_08:_reminder1_if_silent",   # модуль с подчёркиванием
         REMINDER1_DELAY_HOURS               # задержка уже в секундах
     )
 # ---------------------------------------------------------------------------
@@ -283,7 +283,7 @@ def _reminder1_if_silent(user_id: str, send_text_func):
     update_state(user_id, {"reminder1_sent": True, "last_bot_question": txt, "last_message_ts": time.time()})
     plan(
         user_id,
-        "blocks.block_08._reminder2_if_silent",   # модуль с подчёркиванием
+        "blocks.block_08:_reminder2_if_silent",   # модуль с подчёркиванием
         REMINDER2_DELAY_HOURS               # задержка уже в секундах
     )
 
@@ -307,7 +307,7 @@ def _reminder2_if_silent(user_id: str, send_text_func):
     # финальный таймер 4ч -> проверка тишины перед handover
     plan(
         user_id,
-        "blocks.block_08._finalize_if_silent_8",   # модуль с подчёркиванием
+        "blocks.block_08:_finalize_if_silent_8",   # модуль с подчёркиванием
         FINAL_TIMEOUT_HOURS               # задержка уже в секундах
     )
 

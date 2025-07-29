@@ -46,6 +46,6 @@ def handle_block1(message_text, user_id, send_reply_func):
     # Запуск таймеров переходов
     from utils.reminder_engine import plan
     plan(user_id,
-    "blocks.block_01.proceed_to_block_2",   # <‑‑ путь к функции
+    "blocks.block_01:proceed_to_block_2",   # <‑‑ путь к функции
     DELAY_TO_BLOCK_2_SECONDS)
     

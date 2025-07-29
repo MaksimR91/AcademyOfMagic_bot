@@ -132,7 +132,7 @@ def handle_block4(
 
         # через 15 мин. спросим про пакет
         plan(user_id,
-        "blocks.block_04.send_follow_up_if_needed",   # <‑‑ путь к функции
+        "blocks.block_04:send_follow_up_if_needed",   # <‑‑ путь к функции
         FOLLOWUP_DELAY_MIN * 60)
         return
 
@@ -194,7 +194,7 @@ def send_follow_up_if_needed(user_id, send_text_func):
     })
 
     plan(user_id,
-     "blocks.block_04.send_block4_reminder_if_silent",   # <‑‑ путь к функции
+     "blocks.block_04:send_block4_reminder_if_silent",   # <‑‑ путь к функции
      DELAY_TO_REMINDER_HOURS * 3600)
 
 # ---- напоминание 4.1 -------------------------------------------------------
@@ -225,7 +225,7 @@ def send_block4_reminder_if_silent(user_id, send_text_func):
 
     # ------- ставим таймер на второе касание через 12 ч -------
     plan(user_id,
-    "blocks.block_04.send_second_reminder_if_silent",   # <‑‑ путь к функции
+    "blocks.block_04:send_second_reminder_if_silent",   # <‑‑ путь к функции
     REMINDER_2_DELAY_HOURS * 3600)
     
 def send_second_reminder_if_silent(user_id, send_text_func):
@@ -253,7 +253,7 @@ def send_second_reminder_if_silent(user_id, send_text_func):
 
     # ------ ставим финальный таймер на 4 ч → block9 -------
     plan(user_id,
-    "blocks.block_04.finalize_block4_if_silent",   # <‑‑ путь к функции
+    "blocks.block_04:finalize_block4_if_silent",   # <‑‑ путь к функции
     FINAL_TIMEOUT_HOURS * 3600)
 
 def finalize_block4_if_silent(user_id):

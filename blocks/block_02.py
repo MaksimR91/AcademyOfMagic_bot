@@ -75,7 +75,7 @@ def handle_block2(message_text, user_id, send_reply_func):
     else:
         update_state(user_id, {"stage": "block2", "last_message_ts": time.time()})
         plan(user_id,
-        "blocks.block_02.send_first_reminder_if_silent",   # <‑‑ путь к функции
+        "blocks.block_02:send_first_reminder_if_silent",   # <‑‑ путь к функции
         DELAY_TO_BLOCK_2_1_HOURS * 3600)
         return
     update_state(user_id, {"show_type": show_type})
@@ -98,7 +98,7 @@ def send_first_reminder_if_silent(user_id, send_reply_func):
 
     # Подготовка таймера на второе напоминание через 12 часов (в блок 2.2)
     plan(user_id,
-    "blocks.block_02.send_second_reminder_if_silent",   # <‑‑ путь к функции
+    "blocks.block_02:send_second_reminder_if_silent",   # <‑‑ путь к функции
     DELAY_TO_BLOCK_2_2_HOURS * 3600)
     
 
@@ -126,5 +126,5 @@ def send_second_reminder_if_silent(user_id, send_reply_func):
         route_message("", user_id, force_stage="block9")
 
     plan(user_id,
-    "blocks.block_02.finalize_if_still_silent",   # <‑‑ путь к функции
+    "blocks.block_02:finalize_if_still_silent",   # <‑‑ путь к функции
     FINAL_TIMEOUT_HOURS * 3600)

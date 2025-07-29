@@ -112,7 +112,7 @@ def handle_block5(message_text: str, user_id: str, send_reply_text):
     # запускаем 4-часовой таймер
     plan(
         user_id,
-        "blocks.block_05._reminder1_if_silent",   # модуль с подчёркиванием
+        "blocks.block_05:_reminder1_if_silent",   # модуль с подчёркиванием
         DELAY_TO_REM1_HOURS               # задержка уже в секундах
     )
 
@@ -139,7 +139,7 @@ def _reminder1_if_silent(user_id, send_reply_text):
     # таймер на 12 часов
     plan(
         user_id,
-        "blocks.block_05._reminder2_if_silent",   # модуль с подчёркиванием
+        "blocks.block_05:_reminder2_if_silent",   # модуль с подчёркиванием
         DELAY_TO_REM2_HOURS               # задержка уже в секундах
     )
 
@@ -167,7 +167,7 @@ def _reminder2_if_silent(user_id, send_reply_text):
     # финальный 4-часовой таймер → block9 (handover)
     plan(
         user_id,
-        "blocks.block_05._finalize_if_silent",   # модуль с подчёркиванием
+        "blocks.block_05:_finalize_if_silent",   # модуль с подчёркиванием
         FINAL_TIMEOUT_HOURS               # задержка уже в секундах
     )
 

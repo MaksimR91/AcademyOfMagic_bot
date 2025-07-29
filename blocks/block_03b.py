@@ -132,7 +132,7 @@ def handle_block3b(message_text, user_id, send_reply_func, client_request_date):
     # ===== Продолжаем диалог =====
     update_state(user_id, {"stage": "block3b", "last_message_ts": time.time(), "last_bot_question": reply})
     plan(user_id,
-    "blocks.block_03b.send_first_reminder_if_silent",   # <‑‑ путь к функции
+    "blocks.block_03b:send_first_reminder_if_silent",   # <‑‑ путь к функции
     DELAY_TO_BLOCK_3_1_HOURS * 3600)
     
 def send_first_reminder_if_silent(user_id, send_reply_func):
@@ -152,7 +152,7 @@ def send_first_reminder_if_silent(user_id, send_reply_func):
 
     # ставим таймер на второе напоминание
     plan(user_id,
-    "blocks.block_03b.send_second_reminder_if_silent",   # <‑‑ путь к функции
+    "blocks.block_03b:send_second_reminder_if_silent",   # <‑‑ путь к функции
     DELAY_TO_BLOCK_3_2_HOURS * 3600)
 
 
@@ -181,5 +181,5 @@ def send_second_reminder_if_silent(user_id, send_reply_func):
         route_message("", user_id, force_stage="block9")
 
     plan(user_id,
-    "blocks.block_03b.finalize_if_still_silent",   # <‑‑ путь к функции
+    "blocks.block_03b:finalize_if_still_silent",   # <‑‑ путь к функции
     FINAL_TIMEOUT_HOURS * 3600)

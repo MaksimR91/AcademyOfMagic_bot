@@ -119,14 +119,14 @@ def handle_block7(
             delay = REMINDER_2_DELAY_HOURS * 3600
             plan(
         user_id,
-        "blocks.block_07._reminder2_if_silent",   # модуль с подчёркиванием
+        "blocks.block_07:_reminder2_if_silent",   # модуль с подчёркиванием
         delay               # задержка уже в секундах
     )
         # иначе ставим таймер на 7.1
         elif not st.get("reminder1_sent"):
             plan(
         user_id,
-        "blocks.block_07._reminder1_if_silent",   # модуль с подчёркиванием
+        "blocks.block_07:_reminder1_if_silent",   # модуль с подчёркиванием
         REMINDER_HOURS               # задержка уже в секундах
     )
     proof_ok  = bool(state.get("payment_valid"))
@@ -318,7 +318,7 @@ def _reminder1_if_silent(user_id: str, send_text_func):
     # ставим таймер на 7.2 через 12 ч
     plan(
         user_id,
-        "blocks.block_07._reminder2_if_silent",   # модуль с подчёркиванием
+        "blocks.block_07:_reminder2_if_silent",   # модуль с подчёркиванием
         REMINDER_2_DELAY_HOURS               # задержка уже в секундах
     )
 
@@ -349,7 +349,7 @@ def _reminder2_if_silent(user_id: str, send_text_func):
     # финальный 4‑часовой таймер с проверкой тишины
     plan(
         user_id,
-        "blocks.block_07._finalize_if_silent_7",   # модуль с подчёркиванием
+        "blocks.block_07:_finalize_if_silent_7",   # модуль с подчёркиванием
         FINAL_TIMEOUT_HOURS               # задержка уже в секундах
     )
 
