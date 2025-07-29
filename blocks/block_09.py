@@ -39,7 +39,12 @@ def handle_block9(
         reason  = st.get("handover_reason", "")
         comment = _reason_to_comment(reason)
         summary = _build_summary(st, comment)
-        msg_to_owner = summary + "\n\nПожалуйста, свяжись с этим клиентом и обработай заказ (или зафиксируй результат)."
+        # Постоянная подпись для Арсения (всегда одинаковая)
+        msg_to_owner = summary + (
+            "\n\n—––\n"
+            "📌 Пожалуйста, обработай этот заказ и, при необходимости, "
+            "свяжись с клиентом."
+        )
         try:
             send_owner_text(msg_to_owner)
             logger.info(f"[block9] summary sent to owner user={user_id}")
