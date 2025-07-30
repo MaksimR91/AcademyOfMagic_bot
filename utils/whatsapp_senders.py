@@ -21,6 +21,7 @@ def send_text(to: str, body: str):
         "text": {"body": body}
     }
     _post(payload, "text")
+    url = API_URL.format(phone_number_id=PHONE_NUMBER_ID)
     resp = requests.post(url, headers=headers, json=payload, timeout=20)
     logger.info("➡️ WhatsApp %s, статус: %s, ответ: %s",
                 to, resp.status_code, resp.text[:400])
