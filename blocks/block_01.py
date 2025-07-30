@@ -24,7 +24,9 @@ def proceed_to_block_2(user_id):
 
 def handle_block1(message_text, user_id, send_reply_func):
     # Проверка на запрос к Арсению
-    if wants_handover_ai(message_text):
+    need_handover = wants_handover_ai(message_text)
+    logger.info("[block1] wants_handover_ai=%s text=%s", need_handover, message_text)
+    if need_handover:
         update_state(user_id, {"handover_reason": "asked_handover", "scenario_stage_at_handover": "block1"})
         from router import route_message
         return route_message(message_text, user_id, force_stage="block9")
