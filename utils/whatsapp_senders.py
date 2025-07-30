@@ -21,6 +21,10 @@ def send_text(to: str, body: str):
         "text": {"body": body}
     }
     _post(payload, "text")
+    resp = requests.post(url, headers=headers, json=payload, timeout=20)
+    logger.info("➡️ WhatsApp %s, статус: %s, ответ: %s",
+                to, resp.status_code, resp.text[:400])
+    return resp        # полезно вернуть, если понадобится проверять
 
 def send_image(to: str, media_id: str):
     payload = {
