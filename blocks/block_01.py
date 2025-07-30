@@ -3,6 +3,7 @@ import time
 from utils.ask_openai import ask_openai
 from utils.wants_handover_ai import wants_handover_ai
 from state.state import get_state, update_state
+from logger import logger
 
 # Пути к промптам
 GLOBAL_PROMPT_PATH = "prompts/global_prompt.txt"
