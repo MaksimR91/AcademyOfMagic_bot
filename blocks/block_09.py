@@ -46,6 +46,9 @@ def handle_block9(
             "свяжись с клиентом."
         )
         try:
+            logger.info("[block9] → owner: %s… (%d симв.)",
+                        msg_to_owner[:60].replace("\n", " "),
+                        len(msg_to_owner))
             send_owner_text(msg_to_owner)
             logger.info(f"[block9] summary sent to owner user={user_id}")
         except Exception as e:
