@@ -14,11 +14,7 @@ def _headers():
     }
 
 def send_text(to: str, body: str):
-    url = API_URL.format(phone_number_id=PHONE_NUMBER_ID)
-    headers = {
-        "Authorization": f"Bearer {get_token()}",
-        "Content-Type": "application/json"
-    }
+    headers = _headers()              # тот же способ, что и в send_image/…
     payload = {
         "messaging_product": "whatsapp",
         "to": to,
@@ -26,9 +22,9 @@ def send_text(to: str, body: str):
         "text": {"body": body}
     }
 
-    resp = requests.post(url, headers=headers, json=payload, timeout=20)
-    logger.info("➡️ WhatsApp %s, статус: %s, ответ: %s",
-                to, resp.status_code, resp.text[:400])
+    resp = requests.post(API_URL, headers=headers, json=payload, timeout=20)
+    log.info("➡️ WhatsApp %s, статус: %s, ответ: %s",
+                 to, resp.status_code, resp.text[:400])
     return resp
 
 def send_image(to: str, media_id: str):
