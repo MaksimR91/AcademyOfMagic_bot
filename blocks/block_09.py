@@ -35,6 +35,7 @@ def handle_block9(
     if not st.get("scenario_stage_at_handover"):
         update_state(user_id, {"scenario_stage_at_handover": st.get("stage")})
     # --- 1. Отправка резюме Арсению (однократно) ---------------------
+    log.info("[block9] arseni_notified flag: %s", st.get("arseniy_notified"))
     if not st.get("arseniy_notified"):
         reason  = st.get("handover_reason", "")
         comment = _reason_to_comment(reason)
@@ -46,13 +47,14 @@ def handle_block9(
             "свяжись с клиентом."
         )
         try:
-            logger.info("[block9] → owner: %s… (%d симв.)",
-                        msg_to_owner[:60].replace("\n", " "),
-                        len(msg_to_owner))
-            send_owner_text(msg_to_owner)
-            logger.info(f"[block9] summary sent to owner user={user_id}")
+            resp = send_owner_text(msg_to_owner)    # send_text уже вернёт resp
+            logger.info("[block9] summary WA‑status=%s user=%s",
+                        getattr(resp, "status_code", "?"), user_id)
+            # помечаем «отправлено» только при 2xx
+            if getattr(resp, "status_code", 0) // 100 == 2:
+                update_state(user_id, {"arseniy_notified": True})
         except Exception as e:
-            logger.error(f"[block9] failed to send owner summary: {e}")
+            logger.error("[block9] failed to send owner summary: %s", e)
 
         # --- 1a. Фото именинника -------------------------------------
         if st.get("celebrant_photo_id"):
