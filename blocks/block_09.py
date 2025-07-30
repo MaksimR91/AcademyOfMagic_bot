@@ -35,7 +35,7 @@ def handle_block9(
     if not st.get("scenario_stage_at_handover"):
         update_state(user_id, {"scenario_stage_at_handover": st.get("stage")})
     # --- 1. Отправка резюме Арсению (однократно) ---------------------
-    log.info("[block9] arseni_notified flag: %s", st.get("arseniy_notified"))
+    logger.info("[block9] arseni_notified flag: %s", st.get("arseniy_notified"))
     if not st.get("arseniy_notified"):
         reason  = st.get("handover_reason", "")
         comment = _reason_to_comment(reason)
