@@ -76,6 +76,16 @@ if not any(isinstance(h, logging.StreamHandler) for h in logger.handlers):
     console_handler.setFormatter(formatter)
     logger.addHandler(console_handler)
 
+# ─── Важно: то же самое подсовываем gunicorn‑логгеру ───────────────
+guni = logging.getLogger("gunicorn.error")
+guni.setLevel(logging.INFO)
+for h in logger.handlers:            # файл и console
+    if h not in guni.handlers:
+        guni.addHandler(h)
+# Теперь ВСЁ, что делает logger.info(...), одновременно
+# попадает и в файлы, и в консоль Render.
+
+
 # ---- File handler ----
 # Добавляем файловый хэндлер, если его ещё нет
 if not any(isinstance(h, S3TimedRotatingFileHandler) for h in logger.handlers):
