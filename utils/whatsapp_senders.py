@@ -1,6 +1,8 @@
 import os, requests, logging
 from importlib import import_module
-log = logging.getLogger(__name__)
+
+# единый логгер, как во всём проекте
+logger = logging.getLogger(__name__)
 
 PHONE_ID = os.getenv("PHONE_NUMBER_ID")
 API_URL  = f"https://graph.facebook.com/v19.0/{PHONE_ID}/messages"
@@ -22,9 +24,9 @@ def send_text(to: str, body: str):
         "text": {"body": body}
     }
 
-    resp = requests.post(API_URL, headers=headers, json=payload, timeout=20)
-    log.info("➡️ WhatsApp %s, статус: %s, ответ: %s",
-                 to, resp.status_code, resp.text[:400])
+    resp = requests.post(url, headers=headers, json=payload, timeout=20)
+    logger.info("➡️ WhatsApp %s, статус: %s, ответ: %s",
+                to, resp.status_code, resp.text[:400])
     return resp
 
 def send_image(to: str, media_id: str):
@@ -58,7 +60,7 @@ def _post(payload, tag):
     try:
         resp = requests.post(API_URL, json=payload, headers=_headers(), timeout=30)
         resp.raise_for_status()
-        log.info(f"➡️ WA {tag} ok → {payload['to']}")
+        logger.info("➡️ WA %s ok → %s", tag, payload["to"])
     except requests.RequestException as e:
         log.error(f"❌ WA {tag} to {payload['to']}: {e} • payload={payload}")
 
