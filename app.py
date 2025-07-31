@@ -4,6 +4,8 @@ gevent.monkey.patch_all(subprocess=True, ssl=True)
 from utils.env_check import check_env
 check_env()                       # только логируем, не падаем
 # ------------------------------------------------------------------------
+import logging
+logging.getLogger().info("💬 logger test — root INFO visible?")
 import os
 import gc
 import psutil
@@ -253,20 +255,22 @@ def log_memory_usage():
 
 # --------------- DEBUG: tail current log ------------------------------
 @app.route("/debug/tail")
-def tail_log():
-    """Показать последние 150 строк самого свежего файла /tmp/logs/log.*.log"""
-    import pathlib, itertools, html
-    log_dir = pathlib.Path("/tmp/logs")
-    try:
-        latest = max(log_dir.glob("log.*.log"), key=lambda p: p.stat().st_mtime)
-    except ValueError:
+def debug_tail():
+    import os, glob
+    LOG_DIR = "/tmp/logs"
+    # ищем самый свежий *.log в каталоге
+    files = sorted(glob.glob(os.path.join(LOG_DIR, "log*.log")))
+    if not files:
         return "Файл логов не найден", 404
 
-    with latest.open(encoding="utf-8") as f:
-        # берём хвост без чтения всего файла
-        lines = list(itertools.islice(f, max(0, sum(1 for _ in f) - 150), None))
-    body = "".join(html.escape(l) for l in lines)
-    return f"<pre>{body}</pre>", 200
+    latest = files[-1]
+    # читаем последние ±400 строк
+    try:
+        with open(latest, "r", encoding="utf-8") as f:
+            tail = f.readlines()[-400:]
+        return "<pre style='font-size:12px'>" + "".join(tail) + "</pre>"
+    except Exception as e:
+        return f"Не удалось прочитать лог: {e}", 500
 
 # ---------------------------------------------------------------------
 @app.route('/', methods=['GET'])
