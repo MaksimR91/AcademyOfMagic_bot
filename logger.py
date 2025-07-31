@@ -131,6 +131,12 @@ def upload_to_s3_manual():
     except Exception as e:
         logger_s3.exception("💥 Ошибка при ручной загрузке в S3")
 
+# === привязываем gunicorn.error к корню (делать ДО forka) ===
+guni = logging.getLogger("gunicorn.error")
+for h in guni.handlers:                 # StreamHandler, который Gunicorn выводит в консоль
+    if h not in logger.handlers:
+        logger.addHandler(h)            # root теперь пишет и через gunicorn.handler
+
 if __name__ == "__main__":
     logger_s3.info("main() logger.py — тест ручной загрузки")
     upload_to_s3_manual()
