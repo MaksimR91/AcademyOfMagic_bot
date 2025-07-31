@@ -2,6 +2,14 @@
 import logging, os
 from datetime import datetime
 
+# ── совместимо и локально, и на Render ───────────────────────────
+try:
+    from concurrent_log_handler import ConcurrentTimedRotatingFileHandler as S3TimedRotatingFileHandler
+except ImportError:
+    # если пакет не установлен, падаем на стандартный файловый
+    from logging.handlers import TimedRotatingFileHandler as S3TimedRotatingFileHandler
+# ─────────────────────────────────────────────────────────────────
+
 FMT = "[%(asctime)s] [%(levelname)s] %(message)s"
 DATEFMT = "%Y-%m-%d %H:%M:%S"
 
