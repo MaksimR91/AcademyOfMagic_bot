@@ -1,182 +1,23 @@
-import logging
-# новый хэндлер, умеющий писать в один файл из нескольких процессов
-from concurrent_log_handler import ConcurrentTimedRotatingFileHandler
-import os
-import time
-import boto3
-from botocore.config import Config
-from datetime import datetime, timedelta
+# logger.py  –– минимальная, но 100 % рабочая конфигурация
+import logging, os
+from datetime import datetime
 
-# ==== НАСТРОЙКИ S3 ====
-AWS_ACCESS_KEY_ID = os.getenv("YANDEX_ACCESS_KEY_ID")
-AWS_SECRET_ACCESS_KEY = os.getenv("YANDEX_SECRET_ACCESS_KEY")
-BUCKET_NAME = "magicacademylogsars"
-ENDPOINT_URL = "https://storage.yandexcloud.net"
-REGION_NAME = "ru-central1"
+FMT = "[%(asctime)s] [%(levelname)s] %(message)s"
+DATEFMT = "%Y-%m-%d %H:%M:%S"
 
-# ==== ПАПКА ДЛЯ ЛОГОВ ====
-LOG_DIR = "/tmp/logs"
-os.makedirs(LOG_DIR, exist_ok=True)
+root = logging.getLogger()
+root.setLevel(logging.INFO)
 
-# ==== S3 КЛИЕНТ ====
-s3_config = Config(connect_timeout=5, read_timeout=10)
-s3_client = boto3.client(
-    "s3",
-    aws_access_key_id=AWS_ACCESS_KEY_ID,
-    aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
-    endpoint_url=ENDPOINT_URL,
-    config=s3_config
-)
+# console → Render dashboard
+if not any(isinstance(h, logging.StreamHandler) for h in root.handlers):
+    sh = logging.StreamHandler()     # stderr
+    sh.setFormatter(logging.Formatter(FMT, DATEFMT))
+    root.addHandler(sh)
 
-# ==== ВСПОМОГАТЕЛЬНЫЙ ЛОГГЕР ====
-logger_s3 = logging.getLogger("s3_logger")
-logger_s3.setLevel(logging.INFO)
-s3_console = logging.StreamHandler()
-s3_console.setFormatter(logging.Formatter("[%(asctime)s] [%(levelname)s] [S3] %(message)s"))
-logger_s3.addHandler(s3_console)
-logger_s3.propagate = False
-
-# ==== КАСТОМНЫЙ ХЭНДЛЕР (multi‑process) ====
-class S3TimedRotatingFileHandler(ConcurrentTimedRotatingFileHandler):
-    def doRollover(self):
-        logger_s3.info("🔄 Ротация логов (super().doRollover())")
-        super().doRollover()
-        time.sleep(2)
-
-        from rollover_scheduler import schedule_s3_upload
-        schedule_s3_upload()
-        logger_s3.info("⏳ Загрузка лога в S3 будет выполнена через 60 секунд")
-
-# ==== ФОРМАТ ЛОГОВ ====
-formatter = logging.Formatter("[%(asctime)s] [%(levelname)s] %(message)s", "%Y-%m-%d %H:%M:%S")
-
-# ==== ХЭНДЛЕРЫ (только файл) ====
-file_handler = S3TimedRotatingFileHandler(
-    os.path.join(LOG_DIR, "log"),
-    when="midnight",
-    interval=1,
-    backupCount=14,
-    encoding="utf-8",
-    utc=True,   # ротация ровно в 00:00 UTC
-    delay=True  # файл откроется при первом emit(), экономит дескрипторы
-)
-file_handler.suffix = "%Y-%m-%d.log"
-file_handler.setLevel(logging.INFO)
-file_handler.setFormatter(formatter)
-
-# ==== ГЛАВНЫЙ ЛОГГЕР ====
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
-# ---- Console handler (Render dashboard) ----
-#  • выводит всё ≥INFO в stderr → сразу видно в логах сервиса
-#  • добавляем один раз, чтобы не было дублей при per‑process init
-if not any(isinstance(h, logging.StreamHandler) for h in logger.handlers):
-    console_handler = logging.StreamHandler()          # stderr по умолчанию
-    console_handler.setLevel(logging.INFO)
-    console_handler.setFormatter(formatter)
-    logger.addHandler(console_handler)
-
-# ─── Важно: то же самое подсовываем gunicorn‑логгеру ───────────────
+# Продублируем handlers в gunicorn.error (делать до forka!)
 guni = logging.getLogger("gunicorn.error")
-guni.setLevel(logging.INFO)
-for h in logger.handlers:            # файл и console
+for h in root.handlers:
     if h not in guni.handlers:
         guni.addHandler(h)
-# Теперь ВСЁ, что делает logger.info(...), одновременно
-# попадает и в файлы, и в консоль Render.
 
-
-# ---- File handler --------------------------------------------------
-#   • файл нужен только мастер-процессу;
-#   • после fork воркеру оставляем console-handler, а file-handler
-#     аккуратно убираем (чтобы не было “Bad FD”).
-# --------------------------------------------------------------------
-import multiprocessing as _mp
-import multiprocessing.util as _mp_util
-
-def _rearm_logging_after_fork():
-    """
-    Вызывается **уже внутри** воркера – восстанавливает привязки
-    console-/file-хэндлеров и пишет отметку в лог.
-    """
-    root = logging.getLogger()
-    if console_handler not in root.handlers:
-        root.addHandler(console_handler)
-    if file_handler not in root.handlers:
-        root.addHandler(file_handler)   # concurrent-safe, можно держать
-    root.setLevel(logging.INFO)
-    console_handler.setLevel(logging.INFO)
-    root.info("📂 console/file handlers re-attached (worker pid=%s)", os.getpid())
-
-# ── master-процесс ──────────────────────────────────────────────────
-if _mp.current_process().name == "MainProcess":
-    if file_handler not in logger.handlers:
-        logger.addHandler(file_handler)
-        logger.info("📂 file-handler attached (master)")
-
-    # регистрируем хук, который Gunicorn вызовет ПОСЛЕ fork’а
-    _mp_util.register_after_fork(_rearm_logging_after_fork,
-                                 _rearm_logging_after_fork)
-
-# ── воркер (код выполняется после fork’а) ───────────────────────────
-else:
-    # убираем «унаследованный» file-handler во избежание ошибок
-    for h in list(logger.handlers):
-        if isinstance(h, S3TimedRotatingFileHandler):
-            logger.removeHandler(h)
-            try:
-                h.close()
-            except Exception:
-                pass
-    logger.addHandler(console_handler)   # на всякий случай
-    logger.info("🧑‍🚀 worker-process: file-handler detached, console-only")
-    
-# ==== FALLBACK ====
-if not logger.handlers:
-    logging.basicConfig(
-        filename=f"/tmp/logger_{datetime.now():%Y-%m-%d}.log",
-        level=logging.DEBUG,
-        format='%(asctime)s [%(levelname)s] %(message)s'
-    )
-    logger.debug("logger.py basicConfig fallback activated")
-
-# ==== РУЧНАЯ ЗАГРУЗКА ====
-def upload_to_s3_manual():
-    yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
-    local_path = os.path.join(LOG_DIR, f"log.{yesterday}.log")
-    s3_key = f"logs/log.{yesterday}.log"
-
-    logger_s3.info("🚀 Ручная загрузка в S3")
-    if not os.path.exists(local_path):
-        logger_s3.warning("❗ Лог-файл отсутствует, нечего загружать")
-        return
-
-    try:
-        with open(local_path, 'r', encoding='utf-8') as f:
-            content = f.read()
-            logger_s3.info(f"📄 Содержимое файла перед загрузкой (ручная):\n{content}")
-    except Exception as e:
-        logger_s3.warning(f"❌ Не удалось прочитать файл перед ручной загрузкой: {e}")
-
-    try:
-        s3_client.upload_file(local_path, BUCKET_NAME, s3_key)
-        logger_s3.info(f"✅ Успешно загружено вручную: {s3_key}")
-
-        try:
-            s3_client.head_object(Bucket=BUCKET_NAME, Key=s3_key)
-            logger_s3.info("🔍 HEAD запрос (ручная): файл действительно появился в бакете")
-        except s3_client.exceptions.ClientError as e:
-            logger_s3.warning(f"❗ HEAD-запрос (ручная): файл не найден. Ошибка: {e}")
-
-    except Exception as e:
-        logger_s3.exception("💥 Ошибка при ручной загрузке в S3")
-
-# === привязываем gunicorn.error к корню (делать ДО forka) ===
-guni = logging.getLogger("gunicorn.error")
-for h in guni.handlers:                 # StreamHandler, который Gunicorn выводит в консоль
-    if h not in logger.handlers:
-        logger.addHandler(h)            # root теперь пишет и через gunicorn.handler
-
-if __name__ == "__main__":
-    logger_s3.info("main() logger.py — тест ручной загрузки")
-    upload_to_s3_manual()
+root.info("🔊 Logging ready (pid=%s)", os.getpid())
