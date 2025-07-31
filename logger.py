@@ -96,7 +96,15 @@ if _mp.current_process().name == "MainProcess":
         logger.addHandler(file_handler)
     logger.info("📂 file-handler attached (master)")
 else:
-    logger.info("🧑‍🚀 worker-process: пропускаем file-handler")
+    # worker: удаляем унаследованный file-handler во избежание «Bad FD»
+    for h in list(logger.handlers):
+        if isinstance(h, S3TimedRotatingFileHandler):
+            logger.removeHandler(h)
+            try:
+                h.close()
+            except Exception:
+                pass
+    logger.info("🧑‍🚀 worker-process: file-handler detached, console-only")
 
 # ==== FALLBACK ====
 if not logger.handlers:
