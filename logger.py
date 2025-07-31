@@ -88,15 +88,33 @@ for h in logger.handlers:            # файл и console
 
 # ---- File handler ----
 # Добавляем файловый хэндлер, если его ещё нет
-# ─── Воркерам файл не нужен — добавляем
-#     только в master-процессе (pid == os.getpid() до forka)
+# ─── Воркерам файл не нужен; добавляем его и регистрируем «after-fork»
+#     только в master-процессе. ------------------------------------
 import multiprocessing as _mp
+
 if _mp.current_process().name == "MainProcess":
     if not any(isinstance(h, S3TimedRotatingFileHandler) for h in logger.handlers):
         logger.addHandler(file_handler)
-    logger.info("📂 file-handler attached (master)")
-else:
-    # worker: удаляем унаследованный file-handler во избежание «Bad FD»
+        logger.info("📂 file-handler attached (master)")
+
+    # --- хук, который Gunicorn вызовет в каждом воркере -------------
+    import multiprocessing.util as _mp_util
+
+    def _rearm_logging_after_fork():
+        root = logging.getLogger()
+        if console_handler not in root.handlers:
+            root.addHandler(console_handler)
+        if file_handler not in root.handlers:
+            root.addHandler(file_handler)
+        root.setLevel(logging.INFO)
+        console_handler.setLevel(logging.INFO)
+        root.info("📂 console/file handlers re-attached (worker pid=%s)",
+                  os.getpid())
+
+    _mp_util.register_after_fork(_rearm_logging_after_fork,
+                                 _rearm_logging_after_fork)
+
+else:  # мы уже внутри воркера – убираем «унаследованный» file-handler
     for h in list(logger.handlers):
         if isinstance(h, S3TimedRotatingFileHandler):
             logger.removeHandler(h)
