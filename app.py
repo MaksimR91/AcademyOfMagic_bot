@@ -24,6 +24,7 @@ from utils.upload_materials_to_meta_and_update_registry import \
 import json, tempfile, textwrap
 from router import route_message
 from state.state import save_if_absent      # понадобится, чтобы один раз сохранить номер
+logger.info("💬 logger test — должен появиться в консоли Render")
 
 # Supabase config
 SUPABASE_URL = os.getenv("SUPABASE_URL")
@@ -250,6 +251,24 @@ def log_memory_usage():
     mem_mb = process.memory_info().rss / 1024 / 1024
     logger.info(f"Используемая память: {mem_mb:.2f} MB")
 
+# --------------- DEBUG: tail current log ------------------------------
+@app.route("/debug/tail")
+def tail_log():
+    """Показать последние 150 строк самого свежего файла /tmp/logs/log.*.log"""
+    import pathlib, itertools, html
+    log_dir = pathlib.Path("/tmp/logs")
+    try:
+        latest = max(log_dir.glob("log.*.log"), key=lambda p: p.stat().st_mtime)
+    except ValueError:
+        return "Файл логов не найден", 404
+
+    with latest.open(encoding="utf-8") as f:
+        # берём хвост без чтения всего файла
+        lines = list(itertools.islice(f, max(0, sum(1 for _ in f) - 150), None))
+    body = "".join(html.escape(l) for l in lines)
+    return f"<pre>{body}</pre>", 200
+
+# ---------------------------------------------------------------------
 @app.route('/', methods=['GET'])
 def home():
     logger.info("🏠 Запрос GET /")
