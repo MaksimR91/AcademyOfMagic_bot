@@ -86,35 +86,41 @@ for h in logger.handlers:            # файл и console
 # попадает и в файлы, и в консоль Render.
 
 
-# ---- File handler ----
-# Добавляем файловый хэндлер, если его ещё нет
-# ─── Воркерам файл не нужен; добавляем его и регистрируем «after-fork»
-#     только в master-процессе. ------------------------------------
+# ---- File handler --------------------------------------------------
+#   • файл нужен только мастер-процессу;
+#   • после fork воркеру оставляем console-handler, а file-handler
+#     аккуратно убираем (чтобы не было “Bad FD”).
+# --------------------------------------------------------------------
 import multiprocessing as _mp
+import multiprocessing.util as _mp_util
 
+def _rearm_logging_after_fork():
+    """
+    Вызывается **уже внутри** воркера – восстанавливает привязки
+    console-/file-хэндлеров и пишет отметку в лог.
+    """
+    root = logging.getLogger()
+    if console_handler not in root.handlers:
+        root.addHandler(console_handler)
+    if file_handler not in root.handlers:
+        root.addHandler(file_handler)   # concurrent-safe, можно держать
+    root.setLevel(logging.INFO)
+    console_handler.setLevel(logging.INFO)
+    root.info("📂 console/file handlers re-attached (worker pid=%s)", os.getpid())
+
+# ── master-процесс ──────────────────────────────────────────────────
 if _mp.current_process().name == "MainProcess":
-    if not any(isinstance(h, S3TimedRotatingFileHandler) for h in logger.handlers):
+    if file_handler not in logger.handlers:
         logger.addHandler(file_handler)
         logger.info("📂 file-handler attached (master)")
 
-    # --- хук, который Gunicorn вызовет в каждом воркере -------------
-    import multiprocessing.util as _mp_util
-
-    def _rearm_logging_after_fork():
-        root = logging.getLogger()
-        if console_handler not in root.handlers:
-            root.addHandler(console_handler)
-        if file_handler not in root.handlers:
-            root.addHandler(file_handler)
-        root.setLevel(logging.INFO)
-        console_handler.setLevel(logging.INFO)
-        root.info("📂 console/file handlers re-attached (worker pid=%s)",
-                  os.getpid())
-
+    # регистрируем хук, который Gunicorn вызовет ПОСЛЕ fork’а
     _mp_util.register_after_fork(_rearm_logging_after_fork,
                                  _rearm_logging_after_fork)
 
-else:  # мы уже внутри воркера – убираем «унаследованный» file-handler
+# ── воркер (код выполняется после fork’а) ───────────────────────────
+else:
+    # убираем «унаследованный» file-handler во избежание ошибок
     for h in list(logger.handlers):
         if isinstance(h, S3TimedRotatingFileHandler):
             logger.removeHandler(h)
@@ -122,8 +128,9 @@ else:  # мы уже внутри воркера – убираем «унасл
                 h.close()
             except Exception:
                 pass
+    logger.addHandler(console_handler)   # на всякий случай
     logger.info("🧑‍🚀 worker-process: file-handler detached, console-only")
-
+    
 # ==== FALLBACK ====
 if not logger.handlers:
     logging.basicConfig(
