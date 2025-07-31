@@ -10,6 +10,35 @@ except ImportError:
     from logging.handlers import TimedRotatingFileHandler as S3TimedRotatingFileHandler
 # ─────────────────────────────────────────────────────────────────
 
+LOG_DIR = os.getenv("LOG_DIR", "logs")
+os.makedirs(LOG_DIR, exist_ok=True)
+
+logger = logging.getLogger("bot")
+logger.setLevel(logging.INFO)
+
+file_handler = S3TimedRotatingFileHandler(
+    os.path.join(LOG_DIR, "bot.log"),
+    when="midnight",
+    backupCount=7,
+    encoding="utf-8",
+)
+file_handler.setFormatter(
+    logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
+)
+logger.addHandler(file_handler)
+
+# ── заглушки для S3, чтобы код ниже ничего не заметил ─────────────
+class _DummyS3Handler(logging.Handler):
+    def emit(self, record):
+        pass
+
+logger_s3 = _DummyS3Handler()   # вместо реального S3-хендлера
+logger.addHandler(logger_s3)
+
+s3_client = None                # чтобы импорт прошёл
+BUCKET_NAME = None              # имя бакета не нужно локально
+# ──────────────────────────────────────────────────────────────────
+
 FMT = "[%(asctime)s] [%(levelname)s] %(message)s"
 DATEFMT = "%Y-%m-%d %H:%M:%S"
 
