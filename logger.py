@@ -88,8 +88,15 @@ for h in logger.handlers:            # файл и console
 
 # ---- File handler ----
 # Добавляем файловый хэндлер, если его ещё нет
-if not any(isinstance(h, S3TimedRotatingFileHandler) for h in logger.handlers):
-    logger.addHandler(file_handler)
+# ─── Воркерам файл не нужен — добавляем
+#     только в master-процессе (pid == os.getpid() до forka)
+import multiprocessing as _mp
+if _mp.current_process().name == "MainProcess":
+    if not any(isinstance(h, S3TimedRotatingFileHandler) for h in logger.handlers):
+        logger.addHandler(file_handler)
+    logger.info("📂 file-handler attached (master)")
+else:
+    logger.info("🧑‍🚀 worker-process: пропускаем file-handler")
 
 # ==== FALLBACK ====
 if not logger.handlers:
