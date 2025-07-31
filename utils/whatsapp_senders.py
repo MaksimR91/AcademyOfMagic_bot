@@ -62,5 +62,5 @@ def _post(payload, tag):
         resp.raise_for_status()
         logger.info("➡️ WA %s ok → %s", tag, payload["to"])
     except requests.RequestException as e:
-        log.error(f"❌ WA {tag} to {payload['to']}: {e} • payload={payload}")
+        logger.error(f"❌ WA {tag} to {payload['to']}: {e} • payload={payload}")
 
